@@ -1,0 +1,9 @@
+# swap files
+*.swp
+
+# python precompiled files
+*.pyc
+
+# python3 cache
+__pycache__/
+
