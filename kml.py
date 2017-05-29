@@ -9,8 +9,9 @@ class gx_altitudeMode(Enum):
     clampToSeaFloor = 0
     relativeToSeaFloor = 1
 
-class KMLObject(object):
 
+class KMLObject(object):
+    # Base class for primitive KML Object.  Creates and manages the parent and depth properties
     def __init__(self, parent = None):
         self.parent = parent
         self.depth = 0
@@ -37,11 +38,94 @@ class KMLObject(object):
             self.depth = 0
 
 
-class KMLContainer(KMLObject):
+class Snippet(KMLObject):
+    # Snippet object - Optionally used in any Container object
+    def __init__(self, content = None, maxLines = 1, parent = None):
+        super(Snippet, self).__init(parent)
+        self.content = '' if content is None else content
+        self.maxLines = maxLines
 
-    def __init__(self, parent = None):
+    def __str__(self):
+        return = (' ' * self.depth) + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
+
+
+class TimePrimitive(KMLObject):
+    # Base class for time objects.  Created the ID property
+    def __init__(self, id = None, parent = None):
+        super(TimePrimitive, self).__init(parent)
+        self.id = id
+
+
+class TimeSpan(TimePrimitive):
+    # Timespan object
+    def __init__(self, begin, end, id = None, parent = None):
+        super(TimeSpan, self).__init(id, parent)
+        self.begin = begin
+        self.end = end
+
+    def __str__(self):
+        tmp = (' ' * self.depth) + '<TimeSpan'
+        if id is not None:
+            tmp += ' id="{}"'.format(self.id)
+        tmp+='>\n'
+        tmp += (' ' * self.depth) + ' <begin>{}</begin>\n'.format(self.begin)
+        tmp += (' ' * self.depth) + ' <end>{}</end>\n'.format(self.end)
+        tmp += (' ' * self.depth) + '</TimeSpan>\n'.format(self.begin)
+        return tmp
+
+
+class TimeStamp(TimePrimitive):
+    # Timestamp object
+    def __init__(self, when, id = None, parent = None):
+        super(TimeSpan, self).__init(id, parent)
+        self.when = when
+
+    def __str__(self):
+        tmp = (' ' * self.depth) + '<TimeStamp'
+        if id is not None:
+            tmp += ' id="{}"'.format(self.id)
+        tmp+='>\n'
+        tmp += (' ' * self.depth) + ' <when>{}</when>\n'.format(self.when)
+        tmp += (' ' * self.depth) + '</TimeStamp>\n'
+        return tmp
+
+class KMLContainer(KMLObject):
+    # Base class for primitive Container objects.  Manages a list (collection) of child objects.
+    # Overrides the parent and depth properties.
+    # Creates the many properties associated with a KML Feature object
+    def __init__(self, parent = None, **kwargs):
         self.__children = []
         super(KMLContainer, self).__init__(parent)
+        # Set the following properties to None.  KML Code will only be genreated if they are set
+        for p in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time', 'styleUrl', 'styleSelector', 'region', 'extendedData']
+            setattr(self, p, None)
+        # Update any properties passed in via kwargs
+        for k in kwargs:
+            if k in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time', 'styleUrl', 'styleSelector', 'region', 'extendedData', 'parent']
+                setattr(self, k, kwargs[k])
+
+    def __str__(self):
+        # This will be overridden by derived classes
+        # Call another function to create KML code for any set parameters
+        return self.__get_kml_parameters()
+
+    def __get_kml_parameters(self):
+        tmp = ''
+        for p in ['name', 'desc', 'visibility', 'open', 'address', 'phoneNumber', 'styleUrl']
+        if getattr(self, p) is not None:
+            tmp += (' ' * self.depth) + ' <{}>{}</{}>\n'.format(p, getattr(self, p), p)
+        if self.snippet is not None:
+            tmp += (' ' * self.depth) + str(self.snippet)
+        if self.view is not None:
+            tmp += (' ' * self.depth) + str(self.view)
+        if self.time is not None:
+            tmp += (' ' * self.depth) + str(self.time)
+        if self.styleSelector is not None:
+            tmp += (' ' * self.depth) + str(self.styleSelector)
+        if self.region is not None:
+            tmp += (' ' * self.depth) + str(self.region)
+        if self.extendedData is not None:
+            tmp += (' ' * self.depth) + str(self.extendedData)
 
     @property
     def parent(self):
@@ -148,25 +232,44 @@ class Point(KMLObject):
         return True
 
 
+class Folder(KMLContainer):
+
+    def __init__(self, name, desc = None, ):
+        super(Folder, self).__init__(name, desc)
+
+    def __str__(self):
+        tmp = (' ' * self.depth) + '<Folder>\n'
+        tmp += self.__get_kml_parameters()
+        for child in self:
+            tmp = (' ' * self.depth) + str(child)
+        tmp += (' ' * self.depth + '</Folder>\n'
+
+
+class Document(KMLContainer):
+
+    def __init__(self, name, desc):
+        super(Document, self).__init__(name, desc)
+
+    def __str__(self):
+        tmp = (' ' * self.depth) + '<Document>\n'
+        tmp += self.__get_kml_parameters()
+        for child in self:
+            tmp = (' ' * self.depth) + str(child)
+        tmp += (' ' * self.depth + '</Document>\n'
+
+
 class Placemark(KMLContainer):
 
     def __init__(self, name, desc = None, point = None, parent = None):
         super(Placemark, self).__init__(parent)
 
-        if name is None:
-            raise ValueError('Name must not be None')
-        if name == '':
-            raise ValueError('Name must contain a value')
-        self.name = name
-        self.desc = '' if desc is None else desc
         self.append(point)
 
     def __str__(self):
         if self.point is None:
             raise ValueError('Point has not been set for Placemarker {}'.format(self.name))
         tmp = (' ' * self.depth) + '<Placemark>\n'
-        tmp += (' ' * self.depth) + ' <name>{}</name>\n'.format(self.name)
-        tmp += (' ' * self.depth) + ' <description>{}</description>\n'.format(self.desc)
+        tmp += self.__get_kml_parameters()
         tmp += (' ' * self.depth) + str(self.point)
         tmp += (' ' * self.depth) + '</Placemark>\n'
         return tmp
@@ -273,10 +376,10 @@ class LatLonAltBox(LatLonBox):
                 alt = True
         return (latlon and alt)
 
-class Document(KMLContainer):
+class KMLFile(KMLContainer):
 
     def __init__(self):
-        super(Document, self).__init__(None)
+        super(KMLFile, self).__init__(None)
 
     def __str__(self):
         tmp = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n'
