@@ -47,10 +47,10 @@ class KMLObject(object):
             logging.debug('KMLObject parent property unset')
             self.depth = 0
 
-    def __del__(self):
-        if self.__parent is not None:
-            logging.debug('KMLObject destroyed')
-            self.__parent.remove(self)
+#    def __del__(self):
+#        if self.__parent is not None:
+#            logging.debug('KMLObject destroyed')
+#            self.__parent.remove(self)
 
     def _get_id_str(self):
         # Returnds the ID string
@@ -128,15 +128,25 @@ class KMLContainer(KMLObject):
                 logging.debug('KMLContainer inserting {} to collection at {}'.format(str(item), position))
                 self.__elements.insert(position, item)
 
+    def find(self, x):
+        for e in self.__elements:
+            if x.__class__.__name__ == e.__class__.__name__ == 'Attribute':
+                # Compare attributes by name to find the right one
+                if e.name == x.name:
+                    return e
+            else:
+                if x.__class__.__name__ == e.__class__.__name__:
+                    return e
+
+    def replace(self, item):
+        self[self.index(self.find(item))] = item
+
     def __len__(self):
         return len(self.__elements)
 
     def __contains__(self, x):
         # Allows the 'in' opperator to be used to check for the existance of an element
-        for e in self.__elements:
-            if e == x:
-                return True
-        return False
+        return x in self.__elements
 
     def __iter__(self):
         # Allows itteration over elements
@@ -147,10 +157,17 @@ class KMLContainer(KMLObject):
         # Return an element by index
         return self.__elements[index]
 
-    def pop(self, index = 0):
+    def __setitem__(self, index, item):
+        # Set an element by index
+        self.__elements[index] = item
+
+    def index(self, item):
+        return self.__elements.index(item)
+
+#    def pop(self, index = 0):
         # Used to delete an element by index
-        if len(self.__elements) > 0:
-            self.__elements.pop(index)
+#        if len(self.__elements) > 0:
+#            self.__elements.pop(index)
 
 
 class Attribute(KMLObject):
@@ -164,11 +181,12 @@ class Attribute(KMLObject):
     def __str__(self):
         return (' ' * self.depth) + '<{}>{}</{}>\n'.format(self.name, self.value, self.name)
 
-    def __eq__(self, x):
+#    def __eq__(self, x):
         # When comparing attributes, compare by name rather than value
-        if self.__class__.__name__ != x.__class__.__name__:
-            return False
-        return self.name == x.name
+#        if self.__class__.__name__ != x.__class__.__name__:
+#            return False
+#        logger.debug('Attribute compare result {}'.format(self.name == x.name))
+#        return self.name == x.name
 
 class AtomLink(Attribute):
     def __init__(self, url, parent = None):
@@ -208,7 +226,6 @@ class KMLFeature(KMLContainer):
         super(KMLFeature, self).__init__(None)
         self.setAttribute(**kwargs)
 
-    def setAttribute(self, **kwargs):
         for k in kwargs:
             # Check for parent
             if k == 'parent':
@@ -228,3 +245,23 @@ class KMLFeature(KMLContainer):
                 # Append objects directly to the collection
                 self.append(kwarks[k])
 
+    def setAttribute(self, **kwargs):
+        for k in kwargs:
+            # Check for parent
+            if k == 'parent':
+                self.parent = k['parent']
+            # check string types
+            if k in ['name', 'description', 'phoneNumber', 'xal:AddressDetails']:
+                tempObj = Attribute(k, kwargs[k], self)
+            # Check boolean types
+            if k in ['visibility', 'open']:
+                # '0' values are concidered false, all other values concidered true
+                if str(kwargs[k]) == '0':
+                     tempObj = Attribute(k, '0', self)
+                else:
+                     tempObj = Attribute(k, '1', self)
+            # Check object types
+            if k in ['atom:author', 'atom:link', 'snippet', 'view', 'time', 'styleSelector', 'region', 'extendedData']:
+                # Append objects directly to the collection
+                 tempObj = kwarks[k]
+            
