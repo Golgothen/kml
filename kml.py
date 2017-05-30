@@ -46,7 +46,7 @@ class Snippet(KMLObject):
         self.maxLines = maxLines
 
     def __str__(self):
-        return = (' ' * self.depth) + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
+        return (' ' * self.depth) + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
 
 
 class TimePrimitive(KMLObject):
@@ -54,6 +54,12 @@ class TimePrimitive(KMLObject):
     def __init__(self, id = None, parent = None):
         super(TimePrimitive, self).__init(parent)
         self.id = id
+
+    def __get_id_str(self):
+        if self.id is not None:
+            return ' id="{}"'.format(self.id)
+        else:
+            return ''
 
 
 class TimeSpan(TimePrimitive):
@@ -64,10 +70,7 @@ class TimeSpan(TimePrimitive):
         self.end = end
 
     def __str__(self):
-        tmp = (' ' * self.depth) + '<TimeSpan'
-        if id is not None:
-            tmp += ' id="{}"'.format(self.id)
-        tmp+='>\n'
+        tmp = (' ' * self.depth) + '<TimeSpan{}>\n'.format(self.__get_id_str())
         tmp += (' ' * self.depth) + ' <begin>{}</begin>\n'.format(self.begin)
         tmp += (' ' * self.depth) + ' <end>{}</end>\n'.format(self.end)
         tmp += (' ' * self.depth) + '</TimeSpan>\n'.format(self.begin)
@@ -89,6 +92,13 @@ class TimeStamp(TimePrimitive):
         tmp += (' ' * self.depth) + '</TimeStamp>\n'
         return tmp
 
+class Element(KMLObject):
+    def __init__(self, name, value, parent = None):
+        super(Element, self).__init__(parent)
+        # check for valid tag names:
+        validTags = ['name', 'description', 'visibility', 'open', '
+
+
 class KMLContainer(KMLObject):
     # Base class for primitive Container objects.  Manages a list (collection) of child objects.
     # Overrides the parent and depth properties.
@@ -97,11 +107,13 @@ class KMLContainer(KMLObject):
         self.__children = []
         super(KMLContainer, self).__init__(parent)
         # Set the following properties to None.  KML Code will only be genreated if they are set
-        for p in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time', 'styleUrl', 'styleSelector', 'region', 'extendedData']
+        for p in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time',
+                  'styleUrl', 'styleSelector', 'region', 'extendedData']:
             setattr(self, p, None)
         # Update any properties passed in via kwargs
         for k in kwargs:
-            if k in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time', 'styleUrl', 'styleSelector', 'region', 'extendedData', 'parent']
+            if k in ['name', 'desc', 'visibility', 'open', 'snippet', 'address', 'phoneNumber', 'view', 'time',
+                     'styleUrl', 'styleSelector', 'region', 'extendedData', 'parent']:
                 setattr(self, k, kwargs[k])
 
     def __str__(self):
@@ -111,9 +123,9 @@ class KMLContainer(KMLObject):
 
     def __get_kml_parameters(self):
         tmp = ''
-        for p in ['name', 'desc', 'visibility', 'open', 'address', 'phoneNumber', 'styleUrl']
-        if getattr(self, p) is not None:
-            tmp += (' ' * self.depth) + ' <{}>{}</{}>\n'.format(p, getattr(self, p), p)
+        for p in ['name', 'desc', 'visibility', 'open', 'address', 'phoneNumber', 'styleUrl']:
+            if getattr(self, p) is not None:
+                tmp += (' ' * self.depth) + ' <{}>{}</{}>\n'.format(p, getattr(self, p), p)
         if self.snippet is not None:
             tmp += (' ' * self.depth) + str(self.snippet)
         if self.view is not None:
