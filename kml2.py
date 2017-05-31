@@ -20,29 +20,24 @@ class KMLObject(object):
 
     @property
     def parent(self):
-        return self.__get_parent()
-
-    def __get_parent(self):
-        # Allows derived classes to override parent property methods
         return self.__parent
 
     @parent.setter
     def parent(self, parent):
-        # Allows derived classes to override parent property methods
         self._set_parent(parent)
 
     def _set_parent(self, parent):
         if parent is not None:
-            if not hasattr(parent, 'append'):
-                raise TypeError('Parent object must be derived from KMLContainer or NoneType')
             self.__parent = parent
-            parent.append(self)
-            logging.debug('KMLObject parent property set')
             self.depth = parent.depth + 1
+            if hasattr(parent, 'append'):
+                parent.append(self)
+            logging.debug('KMLObject parent property set')
         else:
             if self.__parent is not None:
-                logging.debug('KMLObject removing self from parent collection')
-                self.__parent.remove(self)
+                if hasattr(parent, 'remove'):
+                    logging.debug('KMLObject removing self from parent collection')
+                    self.__parent.remove(self)
             self.__parent = None
             logging.debug('KMLObject parent property unset')
             self.depth = 0
@@ -72,15 +67,10 @@ class KMLContainer(KMLObject):
 
     def __init__(self, parent = None):
         self.__elements = []
-        super(KMLContainer, self).__init__(parent)
+        super().__init__(parent)
         logging.debug('KMLContainer created')
 
     def __str__(self):
-        # This will be overridden by derived classes
-        # Call another function to create KML code for any set parameters
-        return self._get_kml_body()
-
-    def _get_kml_body(self):
         logging.debug('KMLContainer outputting child kml elements')
         tmp = ''
         for e in self.__elements:
@@ -89,7 +79,7 @@ class KMLContainer(KMLObject):
 
     @KMLObject.parent.setter
     def parent(self, parent):
-        self._set_parent(parent)
+        super()._set_parent(parent)
         # in addition, update the depth on all child elements
         logging.debug('KMLContainer updating child depths')
         for child in self.__elements:
@@ -108,6 +98,10 @@ class KMLContainer(KMLObject):
         for child in self.__elements:
             child.depth = self.__depth + 1
 
+    def remove(self, item):
+        logging.debug('KMLContainer removing {} from collection'.format(str(item)))
+        self.__elements.remove(item)
+
     def append(self, item):
         #if type(item) is Document: TODO: Uncomment this later
         #    raise TypeError('Document objects cannot be child objects')
@@ -117,10 +111,6 @@ class KMLContainer(KMLObject):
             if item not in self.__elements:
                 self.__elements.append(item)
                 logging.debug('KMLContainer adding {} to collection'.format(item.__class__.__name__))
-
-    def remove(self, item):
-        logging.debug('KMLContainer removing {} from collection'.format(str(item)))
-        self.__elements.remove(item)
 
     def insert(self, position, item):
         if item is not None:
@@ -178,11 +168,12 @@ class KMLFeature(KMLContainer):
     # KML Feature object.
     def __init__(self, **kwargs):
         # parent is passed in kwargs.  Declare the super with None for the parent for now
-        super(KMLFeature, self).__init__(None)
-        self.setAttribute(**kwargs)
+        super().__init__(None)
         self.__attributes = {}
+        self.set(**kwargs)
+        logging.debug('KMLFeature created')
 
-    def setAttribute(self, **kwargs):
+    def set(self, **kwargs):
         for k in kwargs:
             # Check for parent
             if k == 'parent':
@@ -197,17 +188,47 @@ class KMLFeature(KMLContainer):
             # check string types and object types
             if k in ['name', 'description', 'phoneNumber', 'xal:AddressDetails','atom:author', 'atom:link', 'snippet', 'view', 'time', 'styleSelector', 'region', 'extendedData','visibility', 'open']:
                 self.__attributes[k] = kwargs[k]
+            logging.debug('KMLFeature attribute {} set to {}'.format(k, kwargs[k]))
 
-    def getAttribute(self, attr):
+    def get(self, attr):
         return self.__attributes[attr]
 
-    def __str__(self):
-        # Detived classes will override this nethod
-        tmp = self._get_kml_attributes()
-        tmp += self._get_kml_body()
-        return tmp
+    def append(self, item):
 
-    def _get_kml_attributes(self):
+        # Override superclass append method
+
+        #if type(item) is Document: TODO: Uncomment this later
+        #    raise TypeError('Document objects cannot be child objects')
+        if item is not None:
+            if type(item).name in ['Snippet']: #, 'Camera', 'time', 'styleSelector', 'region', 'extendedData']:
+                self.__attributes[type(item).name.lower] = item
+                logging.debug('KMLFeature adding {} to collection'.format(type(item).name))
+            elif item in ['name', 'description', 'phoneNumber', 'xal:AddressDetails','atom:author', 'atom:link', 'visibility', 'open']:
+                self.__attributes[type(item).name.lower] = item
+                logging.debug('KMLFeature adding {} to collection'.format(type(item).name))
+            else:
+                super().append(item)
+
+    def insert(self, position, item):
+        if item is not None:
+            if type(item).name in ['Snippet']: #, 'Camera', 'time', 'styleSelector', 'region', 'extendedData']:
+                pass #self.__attributes[type(item).name.lower] = item
+            elif item in ['name', 'description', 'phoneNumber', 'xal:AddressDetails','atom:author', 'atom:link', 'visibility', 'open']:
+                pass #self.__attributes[type(item).name.lower] = item
+            else:
+                super().insert(position, item)
+
+    def remove(self, item):
+        if item is not None:
+            if type(item).name in ['Snippet']: #, 'Camera', 'time', 'styleSelector', 'region', 'extendedData']:
+                pass #self.__attributes[type(item).name.lower] = item
+            elif item in ['name', 'description', 'phoneNumber', 'xal:AddressDetails','atom:author', 'atom:link', 'visibility', 'open']:
+                pass #self.__attributes[type(item).name.lower] = item
+            else:
+                super().remove(item)
+
+    def __str__(self):
+        logging.debug('KMLFeature outputting child kml elements')
         tmp = ''
         for a in self.__attributes:
             if type(a) is str:    # Construct tag string for string (and boolean) attributes
@@ -226,15 +247,17 @@ class KMLFeature(KMLContainer):
             else:
                 # call __str__ for object types to get their tags
                 tmp += str(self.__attributes[a])
+        tmp += super().__str__()
         return tmp
 
 class Snippet(KMLObject):
     # Snippet object - Optionally used in any Container object
     # Introduces a maxLines property
     def __init__(self, content = None, maxLines = 1, parent = None):
-        super(Snippet, self).__init(parent)
+        super(Snippet, self).__init__(parent)
         self.content = '' if content is None else content
         self.maxLines = maxLines
+        logging.debug('Snippet created')
 
     def __str__(self):
         return self.indent + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
@@ -244,7 +267,7 @@ class Snippet(KMLObject):
 
 class gx_ViewerOptions(KMLObject):
     def __init__(self, name, enabled = '1', parent = None):
-        super(gx_ViewerOptions, self).__init__(parent)
+        super().__init__(parent)
         if name not in ['streetview', 'historicalimagery', 'sunlight', 'groundnavigation']:
             raise ValueError('name must be streetview, historicalimagery, sunlight or  groundnavigation')
         self.name = name
@@ -252,6 +275,7 @@ class gx_ViewerOptions(KMLObject):
             self.enabled = '0'
         else:
             self.enabled = '1'
+        logging.debug('gx:ViewerOptions created')
 
     def __str__(self):
         tmp = self.indent + '<gx:ViewerOptions>\n'
@@ -259,86 +283,90 @@ class gx_ViewerOptions(KMLObject):
         tmp = self.indent + '</gx:ViewerOptions>\n'
         return tmp
 
+
+class number(float):
+    def __new__(self, value):
+        if type(value) not in [float, int]:
+            raise TypeError('Value must be a number, not {}'.format(type(value)))
+        return float.__new__(self, value)
+
+class angle90(number):
+    def __init__(self, value):
+        if not (-90.0 <= value <= 90.0):
+            raise ValueError('Value out of range')
+
+class angle180(number):
+    def __init__(self, value):
+        if not (-180.0 <= value <= 180.0):
+            raise ValueError('Value out of range')
+
+class angle360(number):
+    def __init__(self, value):
+        if not (0.0 <= value < 360.0):
+            raise ValueError('Value out of range')
+
+
+
+
+
+
 class Coords(KMLObject):
     def __init__(self, lat = 0, lon = 0, alt = 0, parent = None):
-        super(Coords, self).__init__(parent)
-        if type(alt) is not float:
-            raise TypeError('Altitude must be a float')
-        self.alt = alt
-        if type(lat) is not float:
-            raise TypeError('Latitude must be a float')
-        else:
-            if -90.0 <= lat <= 90.0:
-                raise ValueError('Latitude out of range')
-        self.lat = lat
-        if type(lon) is not float:
-            raise TypeError('Longitude must be a float')
-        else:
-            if -180.0 <= lat <= 180.0:
-                raise ValueError('Longitude out of range')
-        self.lon = lon
+        super().__init__(parent)
+        self.alt = number(alt)
+        self.lat = angle90(lat)
+        self.lon = angle180(lon)
+        logging.debug('Coords created')
 
     def __str__(self):
-        # This class can also be subclassed
-        return _str_coords()
-
-    def _str_coords(self):
-        tmp = self.indent + '<longitude>{}</longitude>\n'.format(self.lon)
-        tmp += self.indent + '<latitude>{}</latitude>\n'.format(self.lat)
+        tmp = self.indent + '<latitude>{}</latitude>\n'.format(self.lat)
+        tmp += self.indent + '<longitude>{}</longitude>\n'.format(self.lon)
         tmp += self.indent + '<altitude>{}</altitude>\n'.format(self.alt)
+        return tmp
 
 class Heading(Coords):
     def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, parent = None):
-        super(Heading, self).__init__(lat, lon, alt, parent)
-        if type(heading) is not float:
-            raise TypeError('Heading must be a float')
-        else:
-            if 0.0 <= heading <= 360.0:
-                raise ValueError('Heading out of range')
-        self.lat = lat
+        Coords.__init__(self, lat, lon, alt, parent)
+        self.heading = angle360(heading)
+        logging.debug('Heading created')
 
     def __str__(self):
-        tmp = self._str_coords()
+        tmp = Coords.__str__(self)
         tmp += self.indent + '<heading>{}</heading>\n'.format(self.heading)
-
+        return tmp
 
 class KMLView(KMLObject):
     # Abstract class for View objects
-    def __init__(self, time = None, viewerOptions = None, parent = None):
-        super(KMLView, self).__init__(parent)
+    def __init__(self, time = None, view = None, parent = None):
+        KMLObject.__init__(self, parent)
+        self.view = None
+        self.time = None
         if view is not None:
             if view.__class__.__name__ not in ['gx_ViewerOptions']:
                 raise TypeError('View must be of type gx_ViewerOptions or None, not {}'.format(type(view).name))
-        self.viewer = view
-        self.viewer.parent = self
+            self.viewer = view
+            self.viewer.parent = self
         if time is not None:
             if time.__class__.__name__ not in ['TimeStamp', 'TimeSpan']:
                 raise TypeError('Time must be of type TimeSpan, TimeStamp or None, not {}'.format(type(time).name))
-        self.time = time
-        self.time.parent = self
+            self.time = time
+            self.time.parent = self
+        logging.debug('KLMView created')
 
 
 class Camera(KMLView, Heading):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0,tilt = 0, roll = 0, time = None, viewerOptions = None, parent = None):
-        KMLView.__init__(time, viewerOptions, parent)
-        Heading.__init__(lat, lon, alt, parent)
-        if type(tilt) is not float:
-            raise TypeError('Tilt must be a float')
-        else:
-            if -180.0 <= tilt <= 180.0:
-                raise ValueError('Roll out of range')
-        self.tilt = tilt
-        if type(roll) is not float:
-            raise TypeError('Roll must be a float')
-        else:
-            if -180.0 <= roll <= 180.0:
-                raise ValueError('Roll out of range')
-        self.roll = roll
+    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, roll = 0, time = None, view = None, parent = None):
+        Heading.__init__(self, lat, lon, alt, heading, self)
+        KMLView.__init__(self, time, view, parent)
+        #self.heading = Heading(lat, lon, alt, parent)
+        self.tilt = angle180(tilt)
+        self.roll = angle180(roll)
 
     def __str__(self):
-        tmp = self._str_coords()
-        tmp += self.indent + '<heading>{}</heading>\n'.format(self.heading)
-
+        tmp = Heading.__str__(self)
+        tmp += self.indent + '<tilt>{}</tilt>\n'.format(self.tilt)
+        tmp += self.indent + '<roll>{}</roll>\n'.format(self.roll)
+        return tmp
 
 
 
