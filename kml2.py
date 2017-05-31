@@ -104,7 +104,7 @@ class KMLContainer(KMLObject):
             child.depth = self.__depth + 1
 
     def append(self, item):
-        #if type(item) is Document:
+        #if type(item) is Document: TODO: Uncomment this later
         #    raise TypeError('Document objects cannot be child objects')
         if item is not None:
             if item.parent is not self:  # Stop recursive calls
@@ -128,18 +128,18 @@ class KMLContainer(KMLObject):
                 logging.debug('KMLContainer inserting {} to collection at {}'.format(str(item), position))
                 self.__elements.insert(position, item)
 
-    def find(self, x):
-        for e in self.__elements:
-            if x.__class__.__name__ == e.__class__.__name__ == 'Attribute':
-                # Compare attributes by name to find the right one
-                if e.name == x.name:
-                    return e
-            else:
-                if x.__class__.__name__ == e.__class__.__name__:
-                    return e
+#    def find(self, x):
+#        for e in self.__elements:
+#            if x.__class__.__name__ == e.__class__.__name__ == 'Attribute':
+#                # Compare attributes by name to find the right one
+#                if e.name == x.name:
+#                    return e
+#            else:
+#                if x.__class__.__name__ == e.__class__.__name__:
+#                    return e
 
-    def replace(self, item):
-        self[self.index(self.find(item))] = item
+#    def replace(self, item):
+#        self[self.index(self.find(item))] = item
 
     def __len__(self):
         return len(self.__elements)
@@ -164,10 +164,10 @@ class KMLContainer(KMLObject):
     def index(self, item):
         return self.__elements.index(item)
 
-#    def pop(self, index = 0):
+    def pop(self, index = 0):
         # Used to delete an element by index
-#        if len(self.__elements) > 0:
-#            self.__elements.pop(index)
+        if len(self.__elements) > 0:
+            self.__elements.pop(index)
 
 
 class Attribute(KMLObject):
@@ -204,7 +204,7 @@ class AtomAuthor(Attribute):
         # Overload the output format of the atom:author attribute
         # TODO: According to KML documentation, atom:author does not have a close tag.
         #       Not sure if this is correct or a typo in the documentation.
-        # As per documentation:
+        #       As per documentation:
         return (' ' * self.depth) + '<{}>{}<{}>\n'.format(self.name, self.value, self.name)
 
 class Snippet(KMLObject):
@@ -224,44 +224,39 @@ class KMLFeature(KMLContainer):
     def __init__(self, **kwargs):
         # parent is passed in kwargs.  Declare the super with None for the parent for now
         super(KMLFeature, self).__init__(None)
+        self.__attributes = {}
         self.setAttribute(**kwargs)
-
-        for k in kwargs:
-            # Check for parent
-            if k == 'parent':
-                self.parent = k['parent']
-            # check string types
-            if k in ['name', 'description', 'phoneNumber', 'xal:AddressDetails']:
-                self.append(Attribute(k, kwargs[k], self))
-            # Check boolean types
-            if k in ['visibility', 'open']:
-                # '0' values are concidered false, all other values concidered true
-                if str(kwargs[k]) == '0':
-                    self.append(Attribute(k, '0', self))
-                else:
-                    self.append(Attribute(k, '1', self))
-            # Check object types
-            if k in ['atom:author', 'atom:link', 'snippet', 'view', 'time', 'styleSelector', 'region', 'extendedData']:
-                # Append objects directly to the collection
-                self.append(kwarks[k])
 
     def setAttribute(self, **kwargs):
         for k in kwargs:
             # Check for parent
             if k == 'parent':
                 self.parent = k['parent']
-            # check string types
-            if k in ['name', 'description', 'phoneNumber', 'xal:AddressDetails']:
-                tempObj = Attribute(k, kwargs[k], self)
-            # Check boolean types
+            # Validate boolean types
             if k in ['visibility', 'open']:
-                # '0' values are concidered false, all other values concidered true
+                # '0' values are considered false, all other values considered true
                 if str(kwargs[k]) == '0':
-                     tempObj = Attribute(k, '0', self)
+                    kwargs[k] = '0'
                 else:
-                     tempObj = Attribute(k, '1', self)
-            # Check object types
-            if k in ['atom:author', 'atom:link', 'snippet', 'view', 'time', 'styleSelector', 'region', 'extendedData']:
-                # Append objects directly to the collection
-                 tempObj = kwarks[k]
-            
+                    kwargs[k] = '1'
+            # check string types and object types
+            if k in ['name', 'description', 'phoneNumber', 'xal:AddressDetails','atom:author', 'atom:link', 'snippet', 'view', 'time', 'styleSelector', 'region', 'extendedData','visibility', 'open']:
+                self.__attributes[k] = kwargs[k]
+
+    def getAttribute(self, attr):
+        return self.__attributes[attr]
+
+    def __str__(self):
+        # Detived classes will override this nethod
+        tmp = self._get_kml_attributes
+        tmp += self._get_kml_body
+        return tmp
+
+    def _get_kml_attributes(self):
+        tmp = ''
+        for a in self.__attributes:
+            if type(a) is str:    # Construct tag string for string (and boolean) attributes
+                tmp += '<{}>{}</{}>\n'.format(a, self.__attributes[a], a)
+            else:                 # call __str__ for object types to get their tags
+                tmp += str(self.__attributes[a])
+        return tmp
