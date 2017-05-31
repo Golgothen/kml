@@ -60,6 +60,11 @@ class KMLObject(object):
         else:
             return ' id="{}"'.format(self.id)
 
+    @property
+    def indent(self):
+        return ' ' * self.depth
+
+
 class KMLContainer(KMLObject):
 
     # Base class for primitive Container objects.  Manages a list (collection) of child objects.
@@ -79,7 +84,7 @@ class KMLContainer(KMLObject):
         logging.debug('KMLContainer outputting child kml elements')
         tmp = ''
         for e in self.__elements:
-            tmp += (' ' * self.depth) + str(e)
+            tmp += self.indent + str(e)
         return tmp
 
     @KMLObject.parent.setter
@@ -128,15 +133,13 @@ class KMLContainer(KMLObject):
                 logging.debug('KMLContainer inserting {} to collection at {}'.format(str(item), position))
                 self.__elements.insert(position, item)
 
-#    def find(self, x):
-#        for e in self.__elements:
-#            if x.__class__.__name__ == e.__class__.__name__ == 'Attribute':
-#                # Compare attributes by name to find the right one
-#                if e.name == x.name:
-#                    return e
-#            else:
-#                if x.__class__.__name__ == e.__class__.__name__:
-#                    return e
+    def find(self, id):
+        # Return reference to an element by id
+        # Raises ValueError exception if ID is not found
+        for e in self.__elements:
+            if e.id == id:
+                return e
+        raise ValueError('{} is not in elements'.format(id))
 
 #    def replace(self, item):
 #        self[self.index(self.find(item))] = item
@@ -170,62 +173,14 @@ class KMLContainer(KMLObject):
             self.__elements.pop(index)
 
 
-class Attribute(KMLObject):
-
-    def __init__(self, name, value, parent = None):
-        super(Attribute, self).__init__(parent)
-        self.name = name
-        self.value = value
-        logging.debug('Element created'.format(name))
-
-    def __str__(self):
-        return (' ' * self.depth) + '<{}>{}</{}>\n'.format(self.name, self.value, self.name)
-
-#    def __eq__(self, x):
-        # When comparing attributes, compare by name rather than value
-#        if self.__class__.__name__ != x.__class__.__name__:
-#            return False
-#        logger.debug('Attribute compare result {}'.format(self.name == x.name))
-#        return self.name == x.name
-
-class AtomLink(Attribute):
-    def __init__(self, url, parent = None):
-        super(Attribute, self).__init__('atom:link', url, parent)
-
-    def __str__(self):
-        # Overload the output format of the atom:link attribute
-        return (' ' * self.depth) + '<{} href="{}"/>\n'.format(self.name, self.value)
-
-class AtomAuthor(Attribute):
-    def __init__(self, value, parent = None):
-        super(Attribute, self).__init__('atom:author', value, parent)
-
-    def __str__(self):
-        # Overload the output format of the atom:author attribute
-        # TODO: According to KML documentation, atom:author does not have a close tag.
-        #       Not sure if this is correct or a typo in the documentation.
-        #       As per documentation:
-        return (' ' * self.depth) + '<{}>{}<{}>\n'.format(self.name, self.value, self.name)
-
-class Snippet(KMLObject):
-    # Snippet object - Optionally used in any Container object
-    def __init__(self, content = None, maxLines = 1, parent = None):
-        super(Snippet, self).__init(parent)
-        self.content = '' if content is None else content
-        self.maxLines = maxLines
-
-    def __str__(self):
-        return (' ' * self.depth) + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
-
-
 class KMLFeature(KMLContainer):
 
     # KML Feature object.
     def __init__(self, **kwargs):
         # parent is passed in kwargs.  Declare the super with None for the parent for now
         super(KMLFeature, self).__init__(None)
-        self.__attributes = {}
         self.setAttribute(**kwargs)
+        self.__attributes = {}
 
     def setAttribute(self, **kwargs):
         for k in kwargs:
@@ -248,15 +203,164 @@ class KMLFeature(KMLContainer):
 
     def __str__(self):
         # Detived classes will override this nethod
-        tmp = self._get_kml_attributes
-        tmp += self._get_kml_body
+        tmp = self._get_kml_attributes()
+        tmp += self._get_kml_body()
         return tmp
 
     def _get_kml_attributes(self):
         tmp = ''
         for a in self.__attributes:
             if type(a) is str:    # Construct tag string for string (and boolean) attributes
-                tmp += '<{}>{}</{}>\n'.format(a, self.__attributes[a], a)
-            else:                 # call __str__ for object types to get their tags
+                # Check the only two special case attributes
+                if a == 'atom:author':
+                    # TODO: According to KML documentation, atom:author does not have a close tag.
+                    #       Not sure if this is correct or a typo in the documentation.
+                    #       As per documentation:
+                    tmp += self.indent + ' <{}>{}<{}>\n'.format(a, self.__attributes[a], a)
+                elif a == 'atom:link':
+                    # Link tag has a slightly different layout
+                    tmp +=  self.indent + ' <{} href="{}"/>\n'.format(a, self.__attributes[a])
+                else:
+                    # all other attributes
+                    tmp +=  self.indent + ' <{}>{}</{}>\n'.format(a, self.__attributes[a], a)
+            else:
+                # call __str__ for object types to get their tags
                 tmp += str(self.__attributes[a])
         return tmp
+
+class Snippet(KMLObject):
+    # Snippet object - Optionally used in any Container object
+    # Introduces a maxLines property
+    def __init__(self, content = None, maxLines = 1, parent = None):
+        super(Snippet, self).__init(parent)
+        self.content = '' if content is None else content
+        self.maxLines = maxLines
+
+    def __str__(self):
+        return self.indent + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
+
+
+
+
+class gx_ViewerOptions(KMLObject):
+    def __init__(self, name, enabled = '1', parent = None):
+        super(gx_ViewerOptions, self).__init__(parent)
+        if name not in ['streetview', 'historicalimagery', 'sunlight', 'groundnavigation']:
+            raise ValueError('name must be streetview, historicalimagery, sunlight or  groundnavigation')
+        self.name = name
+        if str(enabled) == '0':
+            self.enabled = '0'
+        else:
+            self.enabled = '1'
+
+    def __str__(self):
+        tmp = self.indent + '<gx:ViewerOptions>\n'
+        tmp = self.indent + ' <gx:option name="{}" enabled={}/>\n'.format(self.name, self.enabled)
+        tmp = self.indent + '</gx:ViewerOptions>\n'
+        return tmp
+
+class Coords(KMLObject):
+    def __init__(self, lat = 0, lon = 0, alt = 0, parent = None):
+        super(Coords, self).__init__(parent)
+        if type(alt) is not float:
+            raise TypeError('Altitude must be a float')
+        self.alt = alt
+        if type(lat) is not float:
+            raise TypeError('Latitude must be a float')
+        else:
+            if -90.0 <= lat <= 90.0:
+                raise ValueError('Latitude out of range')
+        self.lat = lat
+        if type(lon) is not float:
+            raise TypeError('Longitude must be a float')
+        else:
+            if -180.0 <= lat <= 180.0:
+                raise ValueError('Longitude out of range')
+        self.lon = lon
+
+    def __str__(self):
+        # This class can also be subclassed
+        return _str_coords()
+
+    def _str_coords(self):
+        tmp = self.indent + '<longitude>{}</longitude>\n'.format(self.lon)
+        tmp += self.indent + '<latitude>{}</latitude>\n'.format(self.lat)
+        tmp += self.indent + '<altitude>{}</altitude>\n'.format(self.alt)
+
+class Heading(Coords):
+    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, parent = None):
+        super(Heading, self).__init__(lat, lon, alt, parent)
+        if type(heading) is not float:
+            raise TypeError('Heading must be a float')
+        else:
+            if 0.0 <= heading <= 360.0:
+                raise ValueError('Heading out of range')
+        self.lat = lat
+
+    def __str__(self):
+        tmp = self._str_coords()
+        tmp += self.indent + '<heading>{}</heading>\n'.format(self.heading)
+
+
+class KMLView(KMLObject):
+    # Abstract class for View objects
+    def __init__(self, time = None, viewerOptions = None, parent = None):
+        super(KMLView, self).__init__(parent)
+        if view is not None:
+            if view.__class__.__name__ not in ['gx_ViewerOptions']:
+                raise TypeError('View must be of type gx_ViewerOptions or None, not {}'.format(type(view).name))
+        self.viewer = view
+        self.viewer.parent = self
+        if time is not None:
+            if time.__class__.__name__ not in ['TimeStamp', 'TimeSpan']:
+                raise TypeError('Time must be of type TimeSpan, TimeStamp or None, not {}'.format(type(time).name))
+        self.time = time
+        self.time.parent = self
+
+
+class Camera(KMLView, Heading):
+    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0,tilt = 0, roll = 0, time = None, viewerOptions = None, parent = None):
+        KMLView.__init__(time, viewerOptions, parent)
+        Heading.__init__(lat, lon, alt, parent)
+        if type(tilt) is not float:
+            raise TypeError('Tilt must be a float')
+        else:
+            if -180.0 <= tilt <= 180.0:
+                raise ValueError('Roll out of range')
+        self.tilt = tilt
+        if type(roll) is not float:
+            raise TypeError('Roll must be a float')
+        else:
+            if -180.0 <= roll <= 180.0:
+                raise ValueError('Roll out of range')
+        self.roll = roll
+
+    def __str__(self):
+        tmp = self._str_coords()
+        tmp += self.indent + '<heading>{}</heading>\n'.format(self.heading)
+
+
+
+
+
+
+
+
+
+
+"""
+class A(object):
+    def __init__(self, a = 0):
+        self.a = a
+
+class B(object):
+    def __init__(self, b = 0):
+        self.b = b
+
+class C(A,B):
+    def __init__(self, a = 0, b = 0, c = 0):
+        A.__init__(a)
+        B.__init__(b)
+        self.c = c
+
+"""
