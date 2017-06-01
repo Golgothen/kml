@@ -309,7 +309,7 @@ class KMLFeature(KMLObject):
         if value is not None
             if type(value) not in [str]:
                 raise ValueError('link must be of type str, not {}'.format(type(value)))
-        self.__author = value
+        self.__link = value
 
     @property
     def address(self):
@@ -320,7 +320,7 @@ class KMLFeature(KMLObject):
         if value is not None
             if type(value) not in [str]:
                 raise ValueError('address must be of type str, not {}'.format(type(value)))
-        self.__author = value
+        self.__address = value
 
     @property
     def phoneNumber(self):
@@ -331,10 +331,11 @@ class KMLFeature(KMLObject):
         if value is not None
             if type(value) not in [str]:
                 raise ValueError('phoneNumber must be of type str, not {}'.format(type(value)))
-        self.__author = value
+        self.__phoneNumber = value
 
 	    @property
 
+    @property
     def snippet(self):
         return self.__snippet
 
@@ -343,8 +344,9 @@ class KMLFeature(KMLObject):
         if value is not None
             if type(value) not in [Snippet]:
                 raise ValueError('snippet must be of type Snippet, not {}'.format(type(value)))
-        self.__author = value
+        self.__snippet = value
 
+    @property
     def view(self):
         return self.__view
 
@@ -353,7 +355,73 @@ class KMLFeature(KMLObject):
         if value is not None
             if type(value) not in [LookAt, Camera]:
                 raise ValueError('view must be of type LookAt or Camera, not {}'.format(type(value)))
-        self.__author = value
+        self.__view = value
+
+    @property
+    def time(self):
+        return self.__time
+
+    @time.setter
+    def time(self, value):
+        if value is not None
+            if type(value) not in [TimeStamp, TimeSpan]: # TODO: Write TimeStam and TimeSpan classes
+                raise ValueError('time must be of type TimeStamp or TimeSpan, not {}'.format(type(value)))
+        self.__time = value
+
+    @property
+    def styleSelector(self):
+        return self.__styleSelector
+
+    @styleSelector.setter
+    def styleSelector(self, value):
+        if value is not None
+            if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap, IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle, ColorStyle
+                raise ValueError('styleSelector must be of type IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle or ColorStyle, not {}'.format(type(value)))
+        self.__styleSelector = value
+
+    @property
+    def styleURL(self):
+        return self.__styleURL
+
+    @styleURL.setter
+    def styleURL(self, value):
+        if value is not None
+            if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap
+                raise ValueError('styleURL must be of type Style or StyleMap, not {}'.format(type(value)))
+        self.__styleURL = value
+
+    @property
+    def region(self):
+        return self.__region
+
+    @region.setter
+    def region(self, value):
+        if value is not None
+            if type(value) not in [Region]: # TODO: Write Region
+                raise ValueError('region must be of type Region, not {}'.format(type(value)))
+        self.__region = value
+
+    @property
+    def metadata(self):
+        return self.__metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        if value is not None
+            if type(value) not in [Metadata]: # TODO: Write Metadata
+                raise ValueError('metadata must be of type MetaData, not {}'.format(type(value)))
+        self.__metadata = value
+
+    @property
+    def extendedData(self):
+        return self.__extendedData
+
+    @extendedData.setter
+    def extendedData(self, value):
+        if value is not None
+            if type(value) not in [extendedData]: # TODO: Write Style, StyleMap
+                raise ValueError('extendedData must be of type ExtendedData, not {}'.format(type(value)))
+        self.__extendedData = value
 
 
 
