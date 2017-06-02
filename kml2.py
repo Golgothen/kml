@@ -20,16 +20,15 @@ class number(float):
             raise TypeError('Value must be a number, not {}'.format(type(value)))
         return float.__new__(self, value)
 
-
 class angle90(number):
     def __init__(self, value):
-        if not (-90.0 <= value <= 90.0):
+        if not (-90.0 <= value < 90.0):
             raise ValueError('Value out of range')
 
 
 class angle180(number):
     def __init__(self, value):
-        if not (-180.0 <= value <= 180.0):
+        if not (-180.0 <= value < 180.0):
             raise ValueError('Value out of range')
 
 
@@ -676,7 +675,7 @@ class CameraCoords(ViewCoords):
            tmp += self.indent + '<roll>{}</roll>\n'.format(self.__roll)
         return tmp
 
-class LookAtCoords(Heading):
+class LookAtCoords(ViewCoords):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__range = None #number(range)
@@ -697,7 +696,7 @@ class LookAtCoords(Heading):
     def __str__(self):
         tmp = ViewCoords.__str__(self)
         if self.__range is not None:
-            tmp += self.indent + '<roll>{}</roll>\n'.format(self.__range)
+            tmp += self.indent + '<range>{}</range>\n'.format(self.__range)
         return tmp
 
 
@@ -729,10 +728,55 @@ class LookAt(KMLView):
         tmp += '</LookAt>\n'
         return tmp
 
+class KMLDateTime(Object):
+    from datetime import datetime
+    def __init__(self, value, format = None)
+        self.__value = None
+        self.__format = 'YYYY-MM-DDThh:mm:ssZ'
+        self.value = value
+        self.format = format
 
+    @property
+    def value(self):
+        if self.__format == 'Y':
+            return '{:04}'.format(self.__value.year)
+        if self.__format == 'YM':
+            return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
+        if self.__format == 'YMD':
+            return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
+        if self.__format == 'Z':
+            return self.__value.isoformat().split('.')[0]
+        if self.__format == 'UTC':
+            d = datetime.now() - datetime.utcnow()
+            t = d.seconds + round(d.microseconds/1000000)
+            return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
 
+    @value.setter
+    def value(self, value):
+        if value is not None:
+            if type(value) is str:
+                try:
+                    value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
+                except:
+            if type(value) is not datetime:
+                raise TypeError('Value must be of type datetime, not {}'.format(type(value)))
+        self.__value = value
 
+    @property
+    def format(self):
+        return self.__format
 
+    @format.setter
+    def format(self, value)
+        if value not in ['Y',   # Year only
+                         'YM',  # Year and Month
+                         'YMD', # Year, Month and Day
+                         'Z',   # Full Date/Time UTC
+                         'UTC'] # Full Date/Time with UTC conversion
+            raise ValueError('Format pattern does not match')
+        self.__format = value
 
-
-
+class TimeSpan(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__begin = 
