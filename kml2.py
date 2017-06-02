@@ -39,9 +39,9 @@ class angle360(number):
             raise ValueError('Value out of range')
 
 class boolean(int):
-    # ANY value that is not 0 is concidered True
+    # ANY value that is not 0 or boolean False is concidered True
     def __new__(self, value):
-        if str(value) == '0':
+        if str(value) == '0' or str(value) == 'False':
             return int.__new__(self, 0)
         else:
             return int.__new__(self, 1)
@@ -70,7 +70,7 @@ class KMLObject(object):
     def set(self, **kwargs):
         for k in kwargs:
             if hasattr(self, k):
-                setattr(self, k, kwargs[k]
+                setattr(self, k, kwargs[k])
             else:
                 pass
                 #raise AttributeError('Invalid attribute {}'.format(k)
@@ -251,7 +251,7 @@ class KMLFeature(KMLObject):
 
     @name.setter
     def name(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str, int, float]:
                 raise ValueError('name must be of type str, int or float, not {}'.format(type(value)))
         self.__name = value
@@ -262,7 +262,7 @@ class KMLFeature(KMLObject):
 
     @description.setter
     def description(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str]:
                 raise ValueError('description must be of type str, not {}'.format(type(value)))
         self.__description = value
@@ -273,7 +273,7 @@ class KMLFeature(KMLObject):
 
     @visibility.setter
     def visibility(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str, int, float]:
                 raise ValueError('Invalid value for visibility {}'.format(repr(value)))
         self.__visibility = boolean(value)
@@ -284,7 +284,7 @@ class KMLFeature(KMLObject):
 
     @open.setter
     def open(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str, int, float]:
                 raise ValueError('Invalid value for open {}'.format(repr(value)))
         self.__open = boolean(value)
@@ -295,7 +295,7 @@ class KMLFeature(KMLObject):
 
     @author.setter
     def author(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str]:
                 raise ValueError('author must be of type str, not {}'.format(type(value)))
         self.__author = value
@@ -306,7 +306,7 @@ class KMLFeature(KMLObject):
 
     @link.setter
     def link(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str]:
                 raise ValueError('link must be of type str, not {}'.format(type(value)))
         self.__link = value
@@ -317,7 +317,7 @@ class KMLFeature(KMLObject):
 
     @address.setter
     def address(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str]:
                 raise ValueError('address must be of type str, not {}'.format(type(value)))
         self.__address = value
@@ -328,12 +328,10 @@ class KMLFeature(KMLObject):
 
     @phoneNumber.setter
     def phoneNumber(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [str]:
                 raise ValueError('phoneNumber must be of type str, not {}'.format(type(value)))
         self.__phoneNumber = value
-
-	    @property
 
     @property
     def snippet(self):
@@ -341,7 +339,7 @@ class KMLFeature(KMLObject):
 
     @snippet.setter
     def snippet(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [Snippet]:
                 raise ValueError('snippet must be of type Snippet, not {}'.format(type(value)))
         self.__snippet = value
@@ -352,7 +350,7 @@ class KMLFeature(KMLObject):
 
     @view.setter
     def view(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [LookAt, Camera]:
                 raise ValueError('view must be of type LookAt or Camera, not {}'.format(type(value)))
         self.__view = value
@@ -363,7 +361,7 @@ class KMLFeature(KMLObject):
 
     @time.setter
     def time(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [TimeStamp, TimeSpan]: # TODO: Write TimeStam and TimeSpan classes
                 raise ValueError('time must be of type TimeStamp or TimeSpan, not {}'.format(type(value)))
         self.__time = value
@@ -374,7 +372,7 @@ class KMLFeature(KMLObject):
 
     @styleSelector.setter
     def styleSelector(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap, IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle, ColorStyle
                 raise ValueError('styleSelector must be of type IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle or ColorStyle, not {}'.format(type(value)))
         self.__styleSelector = value
@@ -385,7 +383,7 @@ class KMLFeature(KMLObject):
 
     @styleURL.setter
     def styleURL(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap
                 raise ValueError('styleURL must be of type Style or StyleMap, not {}'.format(type(value)))
         self.__styleURL = value
@@ -396,7 +394,7 @@ class KMLFeature(KMLObject):
 
     @region.setter
     def region(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [Region]: # TODO: Write Region
                 raise ValueError('region must be of type Region, not {}'.format(type(value)))
         self.__region = value
@@ -407,7 +405,7 @@ class KMLFeature(KMLObject):
 
     @metadata.setter
     def metadata(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [Metadata]: # TODO: Write Metadata
                 raise ValueError('metadata must be of type MetaData, not {}'.format(type(value)))
         self.__metadata = value
@@ -418,7 +416,7 @@ class KMLFeature(KMLObject):
 
     @extendedData.setter
     def extendedData(self, value):
-        if value is not None
+        if value is not None:
             if type(value) not in [extendedData]: # TODO: Write Style, StyleMap
                 raise ValueError('extendedData must be of type ExtendedData, not {}'.format(type(value)))
         self.__extendedData = value
@@ -429,50 +427,63 @@ class KMLFeature(KMLObject):
     def __str__(self):
         logging.debug('KMLFeature outputting child kml elements')
         tmp = ''
-        for a in self.__attributes:
-            if type(a) is str:    # Construct tag string for string (and boolean) attributes
-                # Check the only two special case attributes
-                if a == 'atom:author':
-                    # TODO: According to KML documentation, atom:author does not have a close tag.
-                    #       Not sure if this is correct or a typo in the documentation.
-                    #       As per documentation:
-                    tmp += self.indent + ' <{}>{}<{}>\n'.format(a, self.__attributes[a], a)
-                elif a == 'atom:link':
-                    # Link tag has a slightly different layout
-                    tmp +=  self.indent + ' <{} href="{}"/>\n'.format(a, self.__attributes[a])
-                else:
-                    # all other attributes
-                    tmp +=  self.indent + ' <{}>{}</{}>\n'.format(a, self.__attributes[a], a)
-            else:
-                # call __str__ for object types to get their tags
-                tmp += str(self.__attributes[a])
-        tmp += super().__str__()
+        # Output any value based attributes
+        for a in ['name','description','visibility','open','phoneNumber','address']:
+            if getattr(self, a) is not None:
+                tmp += self.indent + ' <{}>{}</{}>\n'.format(a, getattr(self, a), a)
+        # Output any special case attributes
+        if self.link is not None:
+            tmp += self.indent + ' <atom:link href="{}" />\n'.format(self.link)
+        if self.addressDetails is not None:
+            tmp += self.indent + ' <xal:AddressDetails>{}</xal:AddressDetails>\n'.format(a, getattr(self, a), a)
+        if self.author is not None:
+            tmp += self.indent + ' <atom:author>\n'
+            tmp += self.indent + '  <atom:name>{}</atom:name>\n'.format(self.author)
+            tmp += self.indent + ' </atom:author>\n'
+        # Output any object based attributes
+        for a in ['snippet','view','time','styleURL','styleSelector','region','metadata','extendedData']:
+            tmp += str(getattr(self, a))
         return tmp
 
 class KMLView(KMLObject):
     # Abstract class for View objects
-    def __init__(self, time = None, view = None, parent = None):
-        super().__init__(parent)
-        self.view = None
-        self.time = None
-        if view is not None:
-            if view.__class__.__name__ not in ['gx_ViewerOptions']:
-                raise TypeError('View must be of type gx_ViewerOptions or None, not {}'.format(type(view).name))
-            self.viewer = view
-            self.viewer.parent = self
-        if time is not None:
-            if time.__class__.__name__ not in ['TimeStamp', 'TimeSpan']:
-                raise TypeError('Time must be of type TimeSpan, TimeStamp or None, not {}'.format(type(time).name))
-            self.time = time
-            self.time.parent = self
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__viewer = None
+        self.__time = None
+        self.set(**kwargs)
+
+    @property
+    def viewer(self):
+        return self.__viewer
+
+    @viewer.setter
+    def viewer(self, value):
+        if value is not None:
+            if type(value) not in [gx_ViewerOptions]:
+                raise TypeError('viewer must be of type gx_ViewerOptions, not {}'.format(type(value)))
+            value.parent = self
+        self.viewer = view
+
+    @property
+    def time(self):
+        return self.__time
+
+    @time.setter
+    def time(self, value):
+        if value is not None:
+            if type(value) not in [TimeStamp, TimeSpan]:
+                raise TypeError('Time must be of type TimeSpan or TimeStamp, not {}'.format(type(value)))
+            value.parent = self
+        self.time = time
         logging.debug('KLMView created')
 
     def __str__(self):
         tmp = ''
-        if self.view is not None:
-            tmp += str(self.view)
-        if self.time is not None:
-            tmp += str(self.time)
+        if self.__viewer is not None:
+            tmp += str(self.__view)
+        if self.__time is not None:
+            tmp += str(self.__time)
         return tmp
 
 
@@ -485,117 +496,237 @@ class KMLView(KMLObject):
 class Snippet(KMLObject):
     # Snippet object - Optionally used in any Container object
     # Introduces a maxLines property
-    def __init__(self, content = None, maxLines = 1, parent = None):
-        super().__init__(parent)
-        self.content = '' if content is None else content
-        self.maxLines = maxLines
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__content= ''
+        self.__maxLines = 2
+        self.set(**kwargs)
         logging.debug('Snippet created')
 
+    @property
+    def content(self):
+        return self.__content
+
+    @content.setter
+    def content(self, value):
+        if type(value) not in [str, int, float]:
+            raise ValueError('Invalid value for content {}'.format(value))
+        self.__content = str(value)
+
+    @property
+    def maxLines(self):
+        return self.__maxLines
+
+    @maxLines.setter
+    def maxLines(self, value):
+        if type(value) not in [int]:
+            raise TypeError('maxLines must be of type int, not {}'.format(type(value)))
+        self.__maxLines = value
+
     def __str__(self):
-        return self.indent + '<Snippet maxLines="{}">{}</Snippet>'.format(self.maxLines, self.content)
+        return self.indent + '<Snippet maxLines="{}">{}</Snippet>'.format(self.__maxLines, self.__content)
 
 
 class gx_ViewerOptions(KMLObject):
-    def __init__(self, name, enabled = '1', parent = None):
-        super().__init__(parent)
-        if name not in ['streetview', 'historicalimagery', 'sunlight', 'groundnavigation']:
-            raise ValueError('name must be streetview, historicalimagery, sunlight or  groundnavigation')
-        self.name = name
-        if str(enabled) == '0':
-            self.enabled = '0'
-        else:
-            self.enabled = '1'
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__name = 'streetview'
+        self.__enabled = boolean(1)
+        self.set(**kwargs)
         logging.debug('gx:ViewerOptions created')
 
+        @property
+        def name(self):
+            return self.__name
+
+        @name.setter
+        def name(self, value):
+            if value not in ['streetview', 'historicalimagery', 'sunlight', 'groundnavigation']:
+                raise ValueError('name must be streetview, historicalimagery, sunlight or  groundnavigation, not {}'.format(value))
+            self.__name = value
+
+    @property
+    def enabled(self):
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled=boolean(value)
+
+
     def __str__(self):
-        tmp = self.indent + '<gx:ViewerOptions>\n'
-        tmp = self.indent + ' <gx:option name="{}" enabled={}/>\n'.format(self.name, self.enabled)
-        tmp = self.indent + '</gx:ViewerOptions>\n'
+        tmp = self.indent + '<gx:ViewerOptions{}>\n'.format(self.id)
+        tmp += self.indent + ' <gx:option name="{}" enabled={}/>\n'.format(self.__name, self.__enabled)
+        tmp += self.indent + '</gx:ViewerOptions>\n'
         return tmp
 
 
 class Coords(KMLObject):
-    def __init__(self, lat = 0, lon = 0, alt = 0, parent = None):
-        super().__init__(parent)
-        self.alt = number(alt)
-        self.lat = angle90(lat)
-        self.lon = angle180(lon)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__lat = angle90(0)
+        self.__lon = angle180(0)
+        self.__alt = None #number(0)
+        self.set(**kwargs)
         logging.debug('Coords created')
 
+    @property
+    def alt(self):
+        return self.__alt
+
+    @alt.setter
+    def alt(self, value):
+        if value is not None:
+            self.__alt = number(value)
+        else:
+            self.__alt = None
+
+    @property
+    def lat(self):
+        return self.__lat
+
+    @lat.setter
+    def lat(self, value):
+        self.__lat = angle90(value)
+
+    @property
+    def lon(self):
+        return self.__lon
+
+    @lon.setter
+    def lon(self, value):
+        self.__alt = angle180(value)
+
+
     def __str__(self):
-        tmp = self.indent + '<latitude>{}</latitude>\n'.format(self.lat)
-        tmp += self.indent + '<longitude>{}</longitude>\n'.format(self.lon)
-        tmp += self.indent + '<altitude>{}</altitude>\n'.format(self.alt)
+        tmp = self.indent + '<latitude>{}</latitude>\n'.format(self.__lat)
+        tmp += self.indent + '<longitude>{}</longitude>\n'.format(self.__lon)
+        if self.__alt is not None:
+            tmp += self.indent + '<altitude>{}</altitude>\n'.format(self.__alt)
         return tmp
 
 class Heading(Coords):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, parent = None):
-        super().__init__(lat, lon, alt, parent)
-        self.heading = angle360(heading)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__heading = None #angle360(0)
+        self.set(**kwargs)
         logging.debug('Heading created')
+
+    @property
+    def heading(self):
+        return self.__heading
+
+    @heading.setter
+    def heading(self, value):
+        if value is not None:
+            self.__heading = angle360(value)
+        else:
+            self.__heading = None
 
     def __str__(self):
         tmp = super().__str__()
-        tmp += self.indent + '<heading>{}</heading>\n'.format(self.heading)
+        if self.__heading is not None:
+            tmp += self.indent + '<heading>{}</heading>\n'.format(self.__heading)
         return tmp
 
 class ViewCoords(Heading):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, parent = None):
-        super().__init__(lat, lon, alt, heading, parent)
-        self.tilt = angle180(tilt)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__tilt = None #angle180(0)
+        self.set(**kwargs)
         logging.debug('ViewCoords created')
+
+    @property
+    def tilt(self):
+        return self.__tilt
+
+    @tilt.setter
+    def tilt(self, value):
+        if value is not None:
+            self.__tilt = angle180(value)
+        else:
+            self.__tilt = None
 
     def __str__(self):
         tmp = super().__str__()
-        tmp += self.indent + '<tilt>{}</tilt>\n'.format(self.tilt)
+        if self.__tilt is not None:
+            tmp += self.indent + '<tilt>{}</tilt>\n'.format(self.__tilt)
         return tmp
 
 class CameraCoords(ViewCoords):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, roll = 0, parent = None):
-        super().__init__(lat, lon, alt, heading, tilt, parent)
-        self.roll = angle180(roll)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__roll = None #angle180(roll)
+        self.set(**kwargs)
+
+    @property
+    def roll(self):
+        return self.__roll
+
+    @roll.setter
+    def roll(self, value):
+        if value is not None:
+            self.__roll = angle180(value)
+        else:
+            self.__roll = None
 
     def __str__(self):
         tmp = super().__str__()
-        tmp += self.indent + '<roll>{}</roll>\n'.format(self.roll)
+        if self.__roll is not None:
+           tmp += self.indent + '<roll>{}</roll>\n'.format(self.__roll)
         return tmp
 
 class LookAtCoords(Heading):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, range = 0, parent = None):
-        super().__init__(lat, lon, alt, heading, tilt, parent)
-        self.range = number(range)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__range = None #number(range)
         logging.debug('LookAtCoords created')
+
+    @property
+    def range(self):
+        return self.__range
+
+    @range.setter
+    def range(self, value):
+        if value is not None:
+            self.__range = number(value)
+        else:
+            self.__range = None
+
 
     def __str__(self):
         tmp = ViewCoords.__str__(self)
-        tmp += self.indent + '<roll>{}</roll>\n'.format(self.roll)
+        if self.__range is not None:
+            tmp += self.indent + '<roll>{}</roll>\n'.format(self.__range)
         return tmp
 
 
 class Camera(KMLView):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, roll = 0, time = None, view = None, parent = None):
-        super().__init__(time, view, parent)
-        self.coords = CameraCoords(lat, lon, alt, heading, tilt, roll, self)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.coords = CameraCoords(**kwargs)
+        self.coords.set(parent = self)
         logging.debug('Camera created')
 
     def __str__(self):
         tmp = '<Camera{}>\n'.format(self.id)
         tmp += super().__str__()
-        tmp += self.indent + str(self.coords)
+        tmp += str(self.coords)
         tmp += '</Camera>\n'
         return tmp
 
 class LookAt(KMLView):
-    def __init__(self, lat = 0, lon = 0, alt = 0, heading = 0, tilt = 0, range = 0, time = None, view = None, parent = None):
-        super().__init__(time, view, parent)
-        self.coords = LookAtCoords(lat, lon, alt, heading, tilt, range, self)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.coords = LookAtCoords(**kwargs)
+        self.coords.set(parent = self)
         logging.debug('LookAt created')
 
     def __str__(self):
         tmp = '<LookAt{}>\n'.format(self.id)
         tmp += super().__str__()
-        tmp += self.indent + str(self.coords)
-        tmp += '</CLookAt>\n'
+        tmp += str(self.coords)
+        tmp += '</LookAt>\n'
         return tmp
 
 
