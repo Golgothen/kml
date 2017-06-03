@@ -36,6 +36,20 @@ class number(float):
         except ValueError:
             return False
 
+
+class colorAttribute(int):
+    def __new__(self, value = 0):
+        if type(value) in [int, str]:
+            raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
+        if type(value) is str:
+            value = int(value, 16)
+        if not 0 <= value <= 255:
+            raise ValueError('Value must be between 0 and 255')
+        return int.__new__(self, value)
+
+    def __str__(self):
+        return '{:02X}'.format(self)
+
 class angle90(number):
     def __init__(self, value):
         if not (-90.0 <= value < 90.0):
@@ -377,7 +391,7 @@ class KMLFeature(KMLObject):
     @time.setter
     def time(self, value):
         if value is not None:
-            if type(value) not in [TimeStamp, TimeSpan]: # TODO: Write TimeStam and TimeSpan classes
+            if type(value) not in [TimeStamp, TimeSpan]:
                 raise ValueError('time must be of type TimeStamp or TimeSpan, not {}'.format(type(value)))
         self.__time = value
 
@@ -885,3 +899,69 @@ class TimeStamp(KMLObject):
         tmp += self.indent + ' <when>{}</when>\n'.format(self.when.value)
         tmp += self.indent + '</TimeStamp>\n'
         return tmp
+
+class Color(object):
+    def __init__(self, alpha = 0, red = 0, green = 0, blue = 0)
+        self.__alpha = colorAttribute(alpha)
+        self.__red = colorAttribute(red)
+        self.__green = colorAttribute(green)
+        self.__blue = colorAttribute(blue)
+
+    @property
+    def alpha(self):
+        return self.__alpha
+
+    @alpha.setter:
+    def alpha(self, value):
+        self.__alpha = colorAttribute(value)
+
+    @property
+    def red(self):
+        return self.__red
+
+    @red.setter:
+    def red(self, value):
+        self.__red = colorAttribute(value)
+
+    @property
+    def green(self):
+        return self.__green
+
+    @green.setter:
+    def green(self, value):
+        self.__green = colorAttribute(value)
+
+    @property
+    def blue(self):
+        return self.__blue
+
+    @blue.setter:
+    def blue(self, value):
+        self.__blue = colorAttribute(value)
+
+class ColorStyle(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__color = Color()
+        self.__colorMode = 'normal'
+        self.set(**kwargs)
+
+    @property
+    def color(self):
+        return self.__color
+
+    @color.setter
+    def color(self, value)
+        if type(value) 
+class Style(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__icon = None
+        self.__label = None
+        self.__line = None
+        self.__poly = None
+        self.__balloon = None
+        self.__list = None
+        self.set(**kwargs)
+
+
