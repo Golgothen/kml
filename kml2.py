@@ -7,6 +7,8 @@ h.setFormatter(f)
 logger.addHandler(h)
 logger.setLevel(logging.DEBUG)
 
+from datetime import datetime
+
 
 ################################################################################################
 #                                                                                              #
@@ -19,6 +21,20 @@ class number(float):
         if type(value) not in [float, int]:
             raise TypeError('Value must be a number, not {}'.format(type(value)))
         return float.__new__(self, value)
+
+    def isInt(value):
+        try:
+            int(str(value))
+            return True
+        except ValueError:
+            return False
+
+    def isFloat(self, value):
+        try:
+            float(str(value))
+            return True
+        except ValueError:
+            return False
 
 class angle90(number):
     def __init__(self, value):
@@ -728,25 +744,24 @@ class LookAt(KMLView):
         tmp += '</LookAt>\n'
         return tmp
 
-class KMLDateTime(Object):
-    from datetime import datetime
-    def __init__(self, value, format = None)
+class KMLDateTime(object):
+    def __init__(self, value, format = 'Z'):
         self.__value = None
-        self.__format = 'YYYY-MM-DDThh:mm:ssZ'
-        self.value = value
         self.format = format
+        self.value = value
+        self.__precision = 4
 
     @property
     def value(self):
-        if self.__format == 'Y':
+        if self.__format in ['Y', 'gYear']:
             return '{:04}'.format(self.__value.year)
-        if self.__format == 'YM':
+        if self.__format in ['YM', 'gYearMonth']:
             return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
-        if self.__format == 'YMD':
+        if self.__format in ['YMD', 'dateTime']:
             return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
-        if self.__format == 'Z':
-            return self.__value.isoformat().split('.')[0]
-        if self.__format == 'UTC':
+        if self.__format in ['Z']:    # TODO: Is there a name for this format in the XML Schema?
+            return t = self.__value.isoformat().split('.')[0] + 'Z'
+        if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
             d = datetime.now() - datetime.utcnow()
             t = d.seconds + round(d.microseconds/1000000)
             return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
@@ -755,9 +770,43 @@ class KMLDateTime(Object):
     def value(self, value):
         if value is not None:
             if type(value) is str:
-                try:
-                    value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
-                except:
+                # Convert strings to date based in value of format
+                if self.__format is None:
+                    raise ValueError('Must specify a format when converting from str to KMLDateTime')
+                elif self.__format in ['Y', 'gYear']:
+                    # Check the Year to make sure it is are valid numbers.  If so, reasemble and convert
+                    if number.isInt(value.split('-')[0]):
+                        # NOTE: XML Schema 2.0 allows for 5 digit years.  Although this code will manipulate a 5 digit year,
+                        #       strptime does not support it so we are stuck with a 4 digit year for now.
+                        value = datetime.strptime('{:04}'.format(int(value.split('-')[0])) + '0101', '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year {}'.format(value[:4]))
+                elif self.__format in ['YM', 'gYearMonth']:
+                    # Check the Year and Month part to make sure they are valid numbers.  If so, reasemble and convert. Default to 1st of the month
+                    dateparts = value[:7].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
+                        value = datetime.strptime(datepart[0] + datepart[1] + '01', '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year-month {}'.format(value[:7]))
+                elif self.__format in ['YMD', 'dateTime']:
+                    # Check each Year, Day and Month part to make sure they are valid numbers.  If so, reasemble and convert
+                    dateparts = value[:10].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]) and number.isInt(dateparts[2]):
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + dateparts[2], '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year-month-day {}'.format(value[:10]))
+                elif self.__format in ['Z']:
+                    # Provide strptime the formatting and convert. Straight forward
+                    try:
+                        value = datetime.strptime(value, '%Y-%m-%dThh:mm:ssZ')
+                    except:
+                        raise  #Raise what ever error gets thrown if it doesnt work
+                elif self.__format in ['UTC']:
+                    # Strip the ':' out of the timezone part and use strptime to convert the string to a datetime
+                    try:
+                        value = datetime.strptime(value[:len(value)-6] + value[len(value)-6:].replace(':',''),'%Y-%m-%dT%H:%M:%S%z')
+                    except:
+                        raise  #Raise what ever error gets thrown if it doesnt work
             if type(value) is not datetime:
                 raise TypeError('Value must be of type datetime, not {}'.format(type(value)))
         self.__value = value
@@ -767,16 +816,16 @@ class KMLDateTime(Object):
         return self.__format
 
     @format.setter
-    def format(self, value)
-        if value not in ['Y',   # Year only
-                         'YM',  # Year and Month
-                         'YMD', # Year, Month and Day
-                         'Z',   # Full Date/Time UTC
-                         'UTC'] # Full Date/Time with UTC conversion
+    def format(self, value):
+        if value not in ['Y', 'gYear',       # Year only
+                         'YM', 'gYearMonth', # Year and Month
+                         'YMD', 'dateTime',  # Year, Month and Day
+                         'Z',                # Full Date/Time UTC
+                         'UTC']:             # Full Date/Time with UTC conversion
             raise ValueError('Format pattern does not match')
         self.__format = value
 
-class TimeSpan(KMLObject):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.__begin = 
+#class TimeSpan(KMLObject):
+#    def __init__(self, **kwargs):
+#        super().__init__(**kwargs)
+#        self.__begin = 
