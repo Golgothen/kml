@@ -478,7 +478,7 @@ class KMLView(KMLObject):
             if type(value) not in [gx_ViewerOptions]:
                 raise TypeError('viewer must be of type gx_ViewerOptions, not {}'.format(type(value)))
             value.parent = self
-        self.viewer = view
+        self.__viewer = value
 
     @property
     def time(self):
@@ -490,13 +490,13 @@ class KMLView(KMLObject):
             if type(value) not in [TimeStamp, TimeSpan]:
                 raise TypeError('Time must be of type TimeSpan or TimeStamp, not {}'.format(type(value)))
             value.parent = self
-        self.time = time
+        self.__time = value
         logging.debug('KLMView created')
 
     def __str__(self):
         tmp = ''
         if self.__viewer is not None:
-            tmp += str(self.__view)
+            tmp += str(self.__viewer)
         if self.__time is not None:
             tmp += str(self.__time)
         return tmp
@@ -727,6 +727,7 @@ class Camera(KMLView):
         tmp = '<Camera{}>\n'.format(self.id)
         tmp += super().__str__()
         tmp += str(self.coords)
+        #tmp += str(self.time)
         tmp += '</Camera>\n'
         return tmp
 
@@ -745,7 +746,7 @@ class LookAt(KMLView):
         return tmp
 
 class KMLDateTime(object):
-    def __init__(self, value, format = 'Z'):
+    def __init__(self, value = datetime.now(), format = 'Z'):
         self.__value = None
         self.format = format
         self.value = value
@@ -760,7 +761,7 @@ class KMLDateTime(object):
         if self.__format in ['YMD', 'dateTime']:
             return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
         if self.__format in ['Z']:    # TODO: Is there a name for this format in the XML Schema?
-            return t = self.__value.isoformat().split('.')[0] + 'Z'
+            return self.__value.isoformat().split('.')[0] + 'Z'
         if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
             d = datetime.now() - datetime.utcnow()
             t = d.seconds + round(d.microseconds/1000000)
@@ -785,7 +786,7 @@ class KMLDateTime(object):
                     # Check the Year and Month part to make sure they are valid numbers.  If so, reasemble and convert. Default to 1st of the month
                     dateparts = value[:7].split('-')
                     if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
-                        value = datetime.strptime(datepart[0] + datepart[1] + '01', '%Y%m%d')
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + '01', '%Y%m%d')
                     else:
                         raise ValueError('Invalid year-month {}'.format(value[:7]))
                 elif self.__format in ['YMD', 'dateTime']:
@@ -825,7 +826,62 @@ class KMLDateTime(object):
             raise ValueError('Format pattern does not match')
         self.__format = value
 
-#class TimeSpan(KMLObject):
-#    def __init__(self, **kwargs):
-#        super().__init__(**kwargs)
-#        self.__begin = 
+class TimeSpan(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__begin = None
+        self.__end = None
+        self.set(**kwargs)
+
+    @property
+    def begin(self):
+        return self.__begin
+
+    @begin.setter
+    def begin(self, value):
+        if value is not None:
+            if type(value) is not KMLDateTime:
+                raise TypeError('begin must be of type KMLDateTime, not {}'.format(type(value)))
+        self.__begin = value
+
+    @property
+    def end(self):
+        return self.__end
+
+    @end.setter
+    def end(self, value):
+        if value is not None:
+            if type(value) is not KMLDateTime:
+                raise TypeError('end must be of type KMLDateTime, not {}'.format(type(value)))
+        self.__end = value
+
+    def __str__(self):
+        tmp = self.indent + '<TimeSpan{}>\n'.format(self.id)
+        if self.begin is not None:
+            tmp += self.indent + ' <begin>{}</begin>\n'.format(self.begin.value)
+        if self.end is not None:
+            tmp += self.indent + ' <end>{}</end>\n'.format(self.end.value)
+        tmp += self.indent + '</TimeSpan>\n'
+        return tmp
+
+class TimeStamp(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__when = None
+        self.set(**kwargs)
+
+    @property
+    def when(self):
+        return self.__when
+
+    @when.setter
+    def when(self, value):
+        if type(value) is not KMLDateTime:
+            raise TypeError('when must be of type KMLDateTime, not {}'.format(type(value)))
+        self.__when = value
+
+    def __str__(self):
+        tmp = self.indent + '<TimeStamp{}>\n'.format(self.id)
+        tmp += self.indent + ' <when>{}</when>\n'.format(self.when.value)
+        tmp += self.indent + '</TimeStamp>\n'
+        return tmp
