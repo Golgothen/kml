@@ -17,6 +17,13 @@ from datetime import datetime
 ################################################################################################
 
 class number(float):
+
+    #
+    # Extends:      float
+    #
+    # Extnded by:   angle90, angle180, angle360
+    #
+
     def __new__(self, value):
         if type(value) not in [float, int]:
             raise TypeError('Value must be a number, not {}'.format(type(value)))
@@ -38,7 +45,14 @@ class number(float):
 
 
 class colorAttribute(int):
-    def __new__(self, value = 0):
+
+    #
+    # Extends:      int
+    #
+    # Extnded by:
+    #
+
+    def __new__(self,value = 0):
         if type(value) in [int, str]:
             raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
         if type(value) is str:
@@ -50,24 +64,53 @@ class colorAttribute(int):
     def __str__(self):
         return '{:02X}'.format(self)
 
+
 class angle90(number):
+
+    #
+    # Extends:      number
+    #
+    # Extnded by:
+    #
+
     def __init__(self, value):
         if not (-90.0 <= value < 90.0):
             raise ValueError('Value out of range')
 
 
 class angle180(number):
+
+    #
+    # Extends:      number
+    #
+    # Extnded by:
+    #
+
     def __init__(self, value):
         if not (-180.0 <= value < 180.0):
             raise ValueError('Value out of range')
 
 
 class angle360(number):
+
+    #
+    # Extends:      number
+    #
+    # Extnded by:
+    #
+
     def __init__(self, value):
         if not (0.0 <= value < 360.0):
             raise ValueError('Value out of range')
 
 class boolean(int):
+
+    #
+    # Extends:      int
+    #
+    # Extnded by:
+    #
+
     # ANY value that is not 0 or boolean False is concidered True
     def __new__(self, value):
         if str(value) == '0' or str(value) == 'False':
@@ -87,7 +130,15 @@ class boolean(int):
 ################################################################################################
 
 class KMLObject(object):
-    # Base class for primitive KML Object.  Creates and manages the parent and depth properties
+
+    #
+    # Extends:
+    #
+    # Extnded by:   KMLContailer, , KMLFeature, KMLView
+    #               Snippet, gx_ViewerOptions, Coords, TimeSpan, TimeStamp, ColorStyle, Style,
+    #
+
+    # Creates and manages the parent and depth properties
     # Introduces the ID attribute
     def __init__(self, **kwargs):
         logging.debug('KMLObject created')
@@ -145,7 +196,13 @@ class KMLObject(object):
 
 class KMLContainer(KMLObject):
 
-    # Base class for primitive Container objects.  Manages a list (collection) of child objects.
+    #
+    # Extends:      KMLObkect
+    #
+    # Extnded by:
+    #
+
+    # Manages a list (collection) of child objects.
     # Overrides the parent and depth properties.
 
     def __init__(self, **kwargs):
@@ -248,6 +305,12 @@ class KMLContainer(KMLObject):
 
 
 class KMLFeature(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:
+    #
 
     # KML Feature object.
     def __init__(self, **kwargs):
@@ -475,6 +538,13 @@ class KMLFeature(KMLObject):
         return tmp
 
 class KMLView(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:   Camera, LookAt
+    #
+
     # Abstract class for View objects
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -523,7 +593,15 @@ class KMLView(KMLObject):
 ################################################################################################
 
 class Snippet(KMLObject):
-    # Snippet object - Optionally used in any Container object
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:
+    #
+    # Contained by: KMLFeature
+    #
+
     # Introduces a maxLines property
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -557,6 +635,15 @@ class Snippet(KMLObject):
 
 
 class gx_ViewerOptions(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:
+    #
+    # Contained by: KMLView
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__name = 'streetview'
@@ -591,6 +678,13 @@ class gx_ViewerOptions(KMLObject):
 
 
 class Coords(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:   Heading
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__lat = angle90(0)
@@ -635,6 +729,13 @@ class Coords(KMLObject):
         return tmp
 
 class Heading(Coords):
+
+    #
+    # Extends:      Coords
+    #
+    # Extnded by:   ViewCoords
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__heading = None #angle360(0)
@@ -659,6 +760,13 @@ class Heading(Coords):
         return tmp
 
 class ViewCoords(Heading):
+
+    #
+    # Extends:      Heading
+    #
+    # Extnded by:   CameraCoords, LookAtCoords
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__tilt = None #angle180(0)
@@ -683,6 +791,15 @@ class ViewCoords(Heading):
         return tmp
 
 class CameraCoords(ViewCoords):
+
+    #
+    # Extends:      ViewCoords
+    #
+    # Extnded by:
+    #
+    # Contained by: Camera
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__roll = None #angle180(roll)
@@ -706,6 +823,15 @@ class CameraCoords(ViewCoords):
         return tmp
 
 class LookAtCoords(ViewCoords):
+
+    #
+    # Extends:      ViewCoords
+    #
+    # Extnded by:
+    #
+    # Contained by: LookAt
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__range = None #number(range)
@@ -731,6 +857,15 @@ class LookAtCoords(ViewCoords):
 
 
 class Camera(KMLView):
+
+    #
+    # Extends:      KMLView
+    #
+    # Extnded by:
+    #
+    # Contains:     CameraCoords
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.coords = CameraCoords(**kwargs)
@@ -746,6 +881,15 @@ class Camera(KMLView):
         return tmp
 
 class LookAt(KMLView):
+
+    #
+    # Extends:      KMLView
+    #
+    # Extnded by:
+    #
+    # Contains:     LookAtCoords
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.coords = LookAtCoords(**kwargs)
@@ -760,6 +904,15 @@ class LookAt(KMLView):
         return tmp
 
 class KMLDateTime(object):
+
+    #
+    # Extends:
+    #
+    # Extnded by:
+    #
+    # Contained By: TimeSpan
+    #
+
     def __init__(self, value = datetime.now(), format = 'Z'):
         self.__value = None
         self.format = format
@@ -841,6 +994,15 @@ class KMLDateTime(object):
         self.__format = value
 
 class TimeSpan(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:
+    #
+    # Contains:     KMLDateTime
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__begin = None
@@ -879,6 +1041,15 @@ class TimeSpan(KMLObject):
         return tmp
 
 class TimeStamp(KMLObject):
+
+    #
+    # Extends:      OMLObject
+    #
+    # Extnded by:
+    #
+    # Contains:     KMLDateTime
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__when = None
@@ -901,7 +1072,16 @@ class TimeStamp(KMLObject):
         return tmp
 
 class Color(object):
-    def __init__(self, alpha = 0, red = 0, green = 0, blue = 0)
+
+    #
+    # Extends:
+    #
+    # Extnded by:
+    #
+    # Contained by: ColorStyle
+    #
+
+    def __init__(self, alpha = 0, red = 0, green = 0, blue = 0):
         self.__alpha = colorAttribute(alpha)
         self.__red = colorAttribute(red)
         self.__green = colorAttribute(green)
@@ -911,7 +1091,7 @@ class Color(object):
     def alpha(self):
         return self.__alpha
 
-    @alpha.setter:
+    @alpha.setter
     def alpha(self, value):
         self.__alpha = colorAttribute(value)
 
@@ -919,7 +1099,7 @@ class Color(object):
     def red(self):
         return self.__red
 
-    @red.setter:
+    @red.setter
     def red(self, value):
         self.__red = colorAttribute(value)
 
@@ -927,7 +1107,7 @@ class Color(object):
     def green(self):
         return self.__green
 
-    @green.setter:
+    @green.setter
     def green(self, value):
         self.__green = colorAttribute(value)
 
@@ -935,15 +1115,29 @@ class Color(object):
     def blue(self):
         return self.__blue
 
-    @blue.setter:
+    @blue.setter
     def blue(self, value):
         self.__blue = colorAttribute(value)
 
+    def __str__(self):
+        return str(self.__alpha) +  str(self.__red) +  str(self.__green) +  str(self.__blue)
+
 class ColorStyle(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:   LineStyle, IconStyle, PolyStyle, LabelStyle
+    #
+    # Contains:     Color
+    #
+
+    # Introduces color and colorMode properties
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__color = Color()
-        self.__colorMode = 'normal'
+        self.__color = None
+        self.__colorMode = None
         self.set(**kwargs)
 
     @property
@@ -951,9 +1145,135 @@ class ColorStyle(KMLObject):
         return self.__color
 
     @color.setter
-    def color(self, value)
-        if type(value) 
+    def color(self, value):
+        if value is not None:
+            if type(value) is not  Color:
+                raise TypeError('color must be a Color object, not {}'.format(type(value)))
+        self.__color = value
+
+    @property
+    def colorMode(self):
+        return self.__colorMode
+
+    @colorMode.setter
+    def colorMode(self, value):
+        if value is not None:
+            if value not in ['normal', 'random']:
+                raise ValueError('colorMode must be normal or random, not {}'.format(value))
+        self.__colorMode = value
+
+    def __str__(self):
+        tmp = ''
+        if self.__color is not None:
+            tmp += self.indent + ' <color>{}</color>\n'.format(str(self.__color))
+        if self.__colorMode is not None:
+            tmp += self.indent + ' <colorMode>{}</colorMode>\n'.format(self.__colorMode)
+        return tmp
+
+
+class LineStyle(ColorStyle):
+
+    #
+    # Extends:      ColorStyle
+    #
+    # Extnded by:
+    #
+    # Contains:     Color, number, boolean
+    #
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__width = None
+        self.__color = None
+        self.__outerWidth = None
+        self.__physicalWidth = None
+        self.__labelVisibility = None
+        self.set(**kwargs)
+
+    @property
+    def width(self):
+        return self.__width
+
+    @width.setter
+    def width(self, value):
+        if value is not None:
+            self.__width = number(value)
+        else:
+            self.__width = None
+
+    @property
+    def color(self):
+        return self.__color
+
+    @color.setter
+    def color(self, value):
+        if value is not None:
+            if type(value) is not Color:
+                raise TypeError('color must be of type Color, not {}'.format(type(value)))
+        self.__color = value
+
+
+    @property
+    def outerWidth(self):
+        return self.__outerWidth
+
+    @outerWidth.setter
+    def outerWidth(self, value):
+        if value is not None:
+            self.__outerWidth = number(value)
+        else:
+            self.__outerWidth = None
+
+    @property
+    def physicalWidth(self):
+        return self.__physicalWidth
+
+    @physicalWidth.setter
+    def physicalWidth(self, value):
+        if value is not None:
+            self.__physicalWidth = number(value)
+        else:
+            self.__physicalWidth = None
+
+    @property
+    def labelVisibility(self):
+        return self.__labelVisibility
+
+    @labelVisibility.setter
+    def labelVisibility(self, value):
+        if value is not None:
+            self.__labelVisibility = boolean(value)
+        else:
+            self.__labelVisibility = None
+
+    def __str__(self):
+        tmp = self.indent + '<LineStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        if self.__width is not None:
+            tmp += self.indent + ' <width>{}</width>\n'.format(self.__width)
+        if self.__color is not None:
+            tmp += self.indent + ' <outerColor>{}</outerColor>\n'.format(str(self.__color))
+        if self.__outerWidth is not None:
+            tmp += self.indent + ' <outerWidth>{}</outerWidth>\n'.format(str(self.__outerWidth))
+        if self.__physicalWidth is not None:
+            tmp += self.indent + ' <physicalWidth>{}</physicalWidth>\n'.format(str(self.__physicalWidth))
+        if self.__labelVisibility is not None:
+            tmp += self.indent + ' <labelVisibility>{}</labelVisibility>\n'.format(str(self.__labelVisibility))
+        tmp += self.indent + '</LineStyle>\n'
+        return tmp
+
 class Style(KMLObject):
+
+    #
+    # Extends:      KMLObject
+    #
+    # Extnded by:
+    #
+    # Contained by: KMLFeature
+    #
+    # Contains:     StyleIcon, StyleLabel, StyleLine, StylePoly, StyleList, StyleBalloon
+    #
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__icon = None
