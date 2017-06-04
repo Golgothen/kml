@@ -19,10 +19,14 @@ from datetime import datetime
 class number(float):
 
     #
-    # Extends:      float
+    # Extends      : float
     #
-    # Extnded by:   angle90, angle180, angle360
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     def __new__(self, value):
         if type(value) not in [float, int]:
@@ -47,10 +51,14 @@ class number(float):
 class colorAttribute(int):
 
     #
-    # Extends:      int
+    # Extends      : int
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     def __new__(self,value = 0):
         if type(value) in [int, str]:
@@ -68,10 +76,14 @@ class colorAttribute(int):
 class angle90(number):
 
     #
-    # Extends:      number
+    # Extends      : number
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     def __init__(self, value):
         if not (-90.0 <= value < 90.0):
@@ -81,10 +93,14 @@ class angle90(number):
 class angle180(number):
 
     #
-    # Extends:      number
+    # Extends      : number
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     def __init__(self, value):
         if not (-180.0 <= value < 180.0):
@@ -94,10 +110,14 @@ class angle180(number):
 class angle360(number):
 
     #
-    # Extends:      number
+    # Extends      : number
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     def __init__(self, value):
         if not (0.0 <= value < 360.0):
@@ -106,12 +126,16 @@ class angle360(number):
 class boolean(int):
 
     #
-    # Extends:      int
+    # Extends      : int
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By : gx_ViewerOptions
+    # 
 
-    # ANY value that is not 0 or boolean False is concidered True
+    # ANY value that is not 0 or boolean False is considered True
     def __new__(self, value):
         if str(value) == '0' or str(value) == 'False':
             return int.__new__(self, 0)
@@ -122,6 +146,7 @@ class boolean(int):
         if self == 0:
             return False
         return True
+
 
 ################################################################################################
 #                                                                                              #
@@ -134,9 +159,12 @@ class KMLObject(object):
     #
     # Extends:
     #
-    # Extnded by:   KMLContailer, , KMLFeature, KMLView
-    #               Snippet, gx_ViewerOptions, Coords, TimeSpan, TimeStamp, ColorStyle, Style,
+    # Extended by  : KMLContailer, , KMLFeature, KMLView, Snippet, gx_ViewerOptions, Coords, TimeSpan, TimeStamp, ColorStyle, Style,
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     # Creates and manages the parent and depth properties
     # Introduces the ID attribute
@@ -197,10 +225,14 @@ class KMLObject(object):
 class KMLContainer(KMLObject):
 
     #
-    # Extends:      KMLObkect
+    # Extends      : KMLObkect
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     :
+    #
+    # Contained By :
+    # 
 
     # Manages a list (collection) of child objects.
     # Overrides the parent and depth properties.
@@ -307,14 +339,17 @@ class KMLContainer(KMLObject):
 class KMLFeature(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
+    # Contains     : Snippet, Camera/LookAt, TimeStamp/TimeSpan, Style, Region
+    #
+    # Contained By :
+    # 
 
     # KML Feature object.
     def __init__(self, **kwargs):
-        # parent can be passed in kwargs.  Declare the super with None for the parent for now
         super().__init__(**kwargs)
         self.__name = None
         self.__description = None
@@ -513,9 +548,6 @@ class KMLFeature(KMLObject):
                 raise ValueError('extendedData must be of type ExtendedData, not {}'.format(type(value)))
         self.__extendedData = value
 
-
-
-
     def __str__(self):
         logging.debug('KMLFeature outputting child kml elements')
         tmp = ''
@@ -540,10 +572,14 @@ class KMLFeature(KMLObject):
 class KMLView(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:   Camera, LookAt
+    # Extended by  : Camera, LookAt
     #
+    # Contains     :
+    #
+    # Contained By : KMLFeatuyre
+    # 
 
     # Abstract class for View objects
     def __init__(self, **kwargs):
@@ -595,11 +631,13 @@ class KMLView(KMLObject):
 class Snippet(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: KMLFeature
+    # Contains     :
+    #
+    # Contained by : KMLFeature
     #
 
     # Introduces a maxLines property
@@ -637,11 +675,13 @@ class Snippet(KMLObject):
 class gx_ViewerOptions(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: KMLView
+    # Contains     : boolean
+    #
+    # Contained by : KMLView
     #
 
     def __init__(self, **kwargs):
@@ -680,9 +720,13 @@ class gx_ViewerOptions(KMLObject):
 class Coords(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:   Heading
+    # Extended by  : Heading
+    #
+    # Contains     :
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -731,9 +775,13 @@ class Coords(KMLObject):
 class Heading(Coords):
 
     #
-    # Extends:      Coords
+    # Extends      : Coords
     #
-    # Extnded by:   ViewCoords
+    # Extended by  : ViewCoords
+    #
+    # Contains     :
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -762,9 +810,13 @@ class Heading(Coords):
 class ViewCoords(Heading):
 
     #
-    # Extends:      Heading
+    # Extends      : Heading
     #
-    # Extnded by:   CameraCoords, LookAtCoords
+    # Extended by  : CameraCoords, LookAtCoords
+    #
+    # Contains     :
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -793,11 +845,13 @@ class ViewCoords(Heading):
 class CameraCoords(ViewCoords):
 
     #
-    # Extends:      ViewCoords
+    # Extends      : ViewCoords
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: Camera
+    # Contains     :
+    #
+    # Contained by : Camera
     #
 
     def __init__(self, **kwargs):
@@ -825,11 +879,13 @@ class CameraCoords(ViewCoords):
 class LookAtCoords(ViewCoords):
 
     #
-    # Extends:      ViewCoords
+    # Extends      : ViewCoords
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: LookAt
+    # Contains     :
+    #
+    # Contained by : LookAt
     #
 
     def __init__(self, **kwargs):
@@ -859,11 +915,13 @@ class LookAtCoords(ViewCoords):
 class Camera(KMLView):
 
     #
-    # Extends:      KMLView
+    # Extends      : KMLView
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contains:     CameraCoords
+    # Contains     : CameraCoords
+    #
+    # Contained by : KMLFeature
     #
 
     def __init__(self, **kwargs):
@@ -876,18 +934,19 @@ class Camera(KMLView):
         tmp = '<Camera{}>\n'.format(self.id)
         tmp += super().__str__()
         tmp += str(self.coords)
-        #tmp += str(self.time)
         tmp += '</Camera>\n'
         return tmp
 
 class LookAt(KMLView):
 
     #
-    # Extends:      KMLView
+    # Extends      :  KMLView
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contains:     LookAtCoords
+    # Contains     : LookAtCoords
+    #
+    # Contained by : KMLFeature
     #
 
     def __init__(self, **kwargs):
@@ -906,11 +965,13 @@ class LookAt(KMLView):
 class KMLDateTime(object):
 
     #
-    # Extends:
+    # Extends      :
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained By: TimeSpan
+    # Contains     :
+    #
+    # Contained By : TimeSpan, TimeStamp
     #
 
     def __init__(self, value = datetime.now(), format = 'Z'):
