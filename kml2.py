@@ -47,7 +47,6 @@ class number(float):
         except ValueError:
             return False
 
-
 class colorAttribute(int):
 
     #
@@ -72,7 +71,6 @@ class colorAttribute(int):
     def __str__(self):
         return '{:02X}'.format(self)
 
-
 class angle90(number):
 
     #
@@ -89,7 +87,6 @@ class angle90(number):
         if not (-90.0 <= value < 90.0):
             raise ValueError('Value out of range')
 
-
 class angle180(number):
 
     #
@@ -105,7 +102,6 @@ class angle180(number):
     def __init__(self, value):
         if not (-180.0 <= value < 180.0):
             raise ValueError('Value out of range')
-
 
 class angle360(number):
 
@@ -334,7 +330,6 @@ class KMLContainer(KMLObject):
         # Used to delete an element by index
         if len(self.__elements) > 0:
             self.__elements.pop(index)
-
 
 class KMLFeature(KMLObject):
 
@@ -621,7 +616,6 @@ class KMLView(KMLObject):
             tmp += str(self.__time)
         return tmp
 
-
 ################################################################################################
 #                                                                                              #
 #   KML Object definitions                                                                     #
@@ -671,7 +665,6 @@ class Snippet(KMLObject):
     def __str__(self):
         return self.indent + '<Snippet maxLines="{}">{}</Snippet>'.format(self.__maxLines, self.__content)
 
-
 class gx_ViewerOptions(KMLObject):
 
     #
@@ -715,7 +708,6 @@ class gx_ViewerOptions(KMLObject):
         tmp += self.indent + ' <gx:option name="{}" enabled={}/>\n'.format(self.__name, self.__enabled)
         tmp += self.indent + '</gx:ViewerOptions>\n'
         return tmp
-
 
 class Coords(KMLObject):
 
@@ -911,7 +903,6 @@ class LookAtCoords(ViewCoords):
             tmp += self.indent + '<range>{}</range>\n'.format(self.__range)
         return tmp
 
-
 class Camera(KMLView):
 
     #
@@ -1057,11 +1048,13 @@ class KMLDateTime(object):
 class TimeSpan(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contains:     KMLDateTime
+    # Contains     : KMLDateTime
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -1104,11 +1097,13 @@ class TimeSpan(KMLObject):
 class TimeStamp(KMLObject):
 
     #
-    # Extends:      OMLObject
+    # Extends      : OMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contains:     KMLDateTime
+    # Contains     : KMLDateTime
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -1135,11 +1130,13 @@ class TimeStamp(KMLObject):
 class Color(object):
 
     #
-    # Extends:
+    # Extends      :
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: ColorStyle
+    # Contains     :
+    #
+    # Contained by : ColorStyle
     #
 
     def __init__(self, alpha = 0, red = 0, green = 0, blue = 0):
@@ -1186,11 +1183,13 @@ class Color(object):
 class ColorStyle(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:   LineStyle, IconStyle, PolyStyle, LabelStyle
+    # Extended by  : LineStyle, IconStyle, PolyStyle, LabelStyle
     #
-    # Contains:     Color
+    # Contains     : Color
+    #
+    # Contained by :
     #
 
     # Introduces color and colorMode properties
@@ -1235,11 +1234,13 @@ class ColorStyle(KMLObject):
 class LineStyle(ColorStyle):
 
     #
-    # Extends:      ColorStyle
+    # Extends      : ColorStyle
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contains:     Color, number, boolean
+    # Contains     : Color, number, boolean
+    #
+    # Contained by :
     #
 
     def __init__(self, **kwargs):
@@ -1326,13 +1327,13 @@ class LineStyle(ColorStyle):
 class Style(KMLObject):
 
     #
-    # Extends:      KMLObject
+    # Extends      : KMLObject
     #
-    # Extnded by:
+    # Extended by  :
     #
-    # Contained by: KMLFeature
+    # Contains     : StyleIcon, StyleLabel, StyleLine, StylePoly, StyleList, StyleBalloon
     #
-    # Contains:     StyleIcon, StyleLabel, StyleLine, StylePoly, StyleList, StyleBalloon
+    # Contained by : KMLFeature
     #
 
     def __init__(self, **kwargs):
