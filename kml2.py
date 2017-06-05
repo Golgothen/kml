@@ -1736,6 +1736,130 @@ class ItemIcon(KMLObject):
         tmp += self.indent + '</ItemIcon>\n'
         return tmp
 
+class BalloonStyle(KMLObject):
+    """
+    Specifies how the description balloon for placemarks is drawn. The <bgColor>,
+    if specified, is used as the background color of the balloon. See <Feature> for
+    a diagram illustrating how the default description balloon appears in Google
+    Earth.
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  :
+    #
+    # Contains     : Color
+    #
+    # Contained by : ListStyle
+    #
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__bgColor = None
+        self.__textColor = None
+        self.__text = None
+        self.__displayMode = None
+        self.set(**kwargs)
+        logger.debug('BalloonStyle created')
+    
+    @property
+    def bgColor(self):
+        """
+        Background color of the balloon (optional). Color and opacity (alpha) values
+        are expressed in hexadecimal notation. The range of values for any one color
+        is 0 to 255 (00 to ff). The order of expression is aabbggrr, where aa=alpha
+        (00 to ff); bb=blue (00 to ff); gg=green (00 to ff); rr=red (00 to ff). For
+        alpha, 00 is fully transparent and ff is fully opaque. For example, if you
+        want to apply a blue color with 50 percent opacity to an overlay, you would
+        specify the following: <bgColor>7fff0000</bgColor>, where alpha=0x7f,
+        blue=0xff, green=0x00, and red=0x00. The default is opaque white (ffffffff).
+        """
+        return self.__bgColor
+    
+    @bgColor.setter
+    def bgColor(self, value):
+        if value is not None:
+            if type(value) is not Color:
+                raise TypeError('bgColor must be of type Color, not {}'.format(type(value)))
+        self.__bgColor = value
+    
+    @property
+    def textColor(self):
+        """
+        Foreground color for text. The default is black (ff000000).
+        """
+        return self.__textColor
+    
+    @textColor.setter
+    def textColor(self, value):
+        if value is not None:
+            if type(value) is not Color:
+                raise TypeError('textColor must be of type Color, not {}'.format(type(value)))
+        self.__textColor = value
+    
+    @property
+    def text(self):
+        """
+        Text displayed in the balloon. If no text is specified, Google Earth
+        draws the default balloon (with the Feature <name> in boldface, the
+        Feature <description>, links for driving directions, a white background,
+        and a tail that is attached to the point coordinates of the Feature, if
+        specified).
+        
+        You can add entities to the <text> tag using the following format to refer
+        to a child element of Feature: $[name], $[description], $[address], $[id],
+        $[Snippet]. Google Earth looks in the current Feature for the corresponding
+        string entity and substitutes that information in the balloon. To include
+        To here - From here driving directions in the balloon, use the
+        $[geDirections] tag. To prevent the driving directions links from appearing
+        in a balloon, include the <text> element with some content, or with
+        $[description] to substitute the basic Feature <description>.
+        
+        For example, in the following KML excerpt, $[name] and $[description] fields
+        will be replaced by the <name> and <description> fields found in the Feature
+        elements that use this BalloonStyle:
+        
+            <text>This is $[name], whose description is:<br/>$[description]</text>
+        """
+        return self.__text
+    
+    @text.setter
+    def text(self,value):
+        if value is not None:
+            if type(value) is not str:
+                raise TypeError('text must be of type str, not{}'.format(type(value)))
+        self.__text = value
+    
+    @property
+    def displayMode(self):
+        """
+        If <displayMode> is default, Google Earth uses the information supplied in
+        <text> to create a balloon . If <displayMode> is hide, Google Earth does not
+        display the balloon. In Google Earth, clicking the List View icon for a
+        Placemark whose balloon's <displayMode> is hide causes Google Earth to fly
+        to the Placemark.
+        """
+        return self.__displayMode
+    
+    @displayMode.setter
+    def displayMode(self, value):
+        if value is not None:
+            if value not in ['default','hide']:
+                raise ValueError('displayMode must be default or hide, not {}'.format(value))
+        self.__displayMode = value
+    
+    def __str__(self):
+        tmp = self.indent + '<BalloonStyle{}>\n'.format(self.id)
+        if self.__bgColor is not None:
+            tmp += self.indent + ' <bgColor>{}</bgColor>\n'.format(str(self.__bgColor))
+        if self.__textColor is not None:
+            tmp += self.indent + ' <textColor>{}</textColor>\n'.format(str(self.__textColor))
+        if self.__text is not None:
+            tmp += self.indent + ' <text>{}</text>\n'.format(str(self.__text))
+        if self.__displayMode is not None:
+            tmp += self.indent + ' <displayMode>{}</displayMode>\n'.format(str(self.__displayMode))
+        tmp += self.indent + '</BalloonStyle>\n'
+        return tmp
+
 class ListStyle(KMLContainer):
     """
     Specifies how a Feature is displayed in the list view. The list view is a
