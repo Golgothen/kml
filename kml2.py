@@ -1,4 +1,6 @@
 import logging
+from builtins import str
+from mako.runtime import _kwargs_for_callable
 logger = logging.getLogger()
 # Remove after testing
 f = logging.Formatter('%(levelname)-8s:%(funcName)-20s %(lineno)-5s:%(message)s')
@@ -1672,6 +1674,152 @@ class PolyStyle(KMLColorStyle):
         tmp += self.indent + '</PolyStyle>\n'
         return tmp
 
+class ItemIcon(KMLObject):
+    """
+    Icon used in the List view that reflects the state of a Folder or Link fetch.
+    Icons associated with the open and closed modes are used for Folders and
+    Network Links. Icons associated with the error and fetching0, fetching1, and
+    fetching2 modes are used for Network Links.
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained by : ListStyle
+    #
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__state = None
+        self.__href = None
+        self.set(**kwargs)
+        logger.debug('ItemIcon created')
+    
+    @property
+    def state(self):
+        """
+        Specifies the current state of the NetworkLink or Folder. Possible values
+        are open, closed, error, fetching0, fetching1, and fetching2. These values
+        can be combined by inserting a space between two values (no comma).
+        """
+        return self.__state
+    
+    @state.setter
+    def state(self, value):
+        if value is not None:
+            tmp = value.split(' ')
+            for t in tmp:
+                if t not in ['open','closed','error','fetching0','fetching1','fetching2']:
+                    raise ValueError('state must be open, closed, error, fetching0, fetching1 or fetching2, not {}'.format(value))
+        self.__state = value
+    
+    @property
+    def href(self):
+        """Specifies the URI of the image used in the List View for the Feature."""
+        return self.__href
+    
+    @href.setter
+    def href(self, value):
+        if value is not None:
+            if type(value) is not str:
+                raise TypeError('href must be of type str, notm {}'.format(type(value)))
+        self.__href = value
+    
+    def __str__(self):
+        tmp = self.indent + '<ItemIcon>\n'
+        if self.__state is not None:
+            tmp += self.indent + ' <state>{}</state>\n'.format(self.__state)
+        if self.__href is not None:
+            tmp += self.indent + ' <href>{}</href>\n'.format(self.__href)
+        tmp += self.indent + '</ItemIcon>\n'
+        return tmp
+
+class ListStyle(KMLContainer):
+    """
+    Specifies how a Feature is displayed in the list view. The list view is a
+    hierarchy of containers and children; in Google Earth, this is the Places panel.
+    """
+    #
+    # Extends      : KMLContainer
+    #
+    # Extended by  :
+    #
+    # Contains     : ItemIcon, Color
+    #
+    # Contained by : Style
+    #
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__listItemType = None
+        self.__bgColor = None
+        self.set(**kwargs)
+        logger.debug('ListStyle created')
+        
+    @property
+    def listItemType(self):
+        """
+        Specifies how a Feature is displayed in the list view. Possible values are:
+        
+            check (default) - The Feature's visibility is tied to its item's 
+            checkbox.
+            
+            radioFolder - When specified for a Container, only one of the
+            Container's items is visible at a time
+            
+            checkOffOnly - When specified for a Container or Network Link, prevents
+            all items from being made visible at once—that is, the user can turn
+            everything in the Container or Network Link off but cannot turn
+            everything on at the same time. This setting is useful for Containers
+            or Network Links containing large amounts of data.
+            
+            checkHideChildren - Use a normal checkbox for visibility but do not
+            display the Container or Network Link's children in the list view. A
+            checkbox allows the user to toggle visibility of the child objects in
+            the viewer.
+        """
+        return self.__listItemType
+    
+    @listItemType.setter
+    def listItemType(self, value):
+        if value is not None:
+            if value not in ['check','radioFolder','checkOffOnly','checkHiddenChildren']:
+                raise ValueError('listItemType must be check, radioFolder, checkOffOnly or checkHiddenChildren, not {}'.format(value))
+        self.__listItemType = value
+    
+    @property
+    def bgColor(self):
+        """
+        Background color for the Snippet. Color and opacity values are expressed in
+        hexadecimal notation. The range of values for any one color is 0 to 255 (00
+        to ff). For alpha, 00 is fully transparent and ff is fully opaque. The order
+        of expression is aabbggrr, where aa=alpha (00 to ff); bb=blue (00 to ff);
+        gg=green (00 to ff); rr=red (00 to ff). For example, if you want to apply a
+        blue color with 50 percent opacity to an overlay, you would specify the
+        following: <color>7fff0000</color>, where alpha=0x7f, blue=0xff, green=0x00,
+        and red=0x00.
+        """
+        return self.__bgColor
+    
+    @bgColor.setter
+    def bgColor(self, value):
+        if value is not None:
+            if type(value) is not Color:
+                raise TypeError('bgColor must be of type Color, not {}'.format(type(value)))
+        self.__bgColor = value
+    
+    def __str__(self):
+        tmp = self.indent + '<ListStyle>\n'
+        if self.__listItemType is not None:
+            tmp += self.indent + ' <listItemType>{}</listItemType>\n'.format(self.__listItemType)
+        if self.__bgColor is not None:
+            tmp+= self.indent + ' <bgColor>{}</bgcolor>\n'.format(str(self.__bgColor))
+        tmp += super().__str__()
+        tmp += '</ListStyle>\n'
+        return tmp
+
 class Style(KMLObject):
 
     #
@@ -1679,7 +1827,7 @@ class Style(KMLObject):
     #
     # Extended by  :
     #
-    # Contains     : IconStyle, LabelStyle, LineStyle, PolyStyle, ListStyle, BalloonStyle
+    # Contains     : IconStyle, LabelStyle, LineStyle, PolyStyle, LisSttyle, BalloonStyle
     #
     # Contained by : KMLFeature
     #
