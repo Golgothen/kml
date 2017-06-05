@@ -19,7 +19,16 @@ from datetime import datetime
 ################################################################################################
 
 class number(float):
-
+    """
+    Subclass of the float datatype.
+    
+    Provides two class methods:
+    
+        isInt() - returns true or false if a given argument can be converted to an int
+        
+        isFloat() - returns true or false if a given argument can be converted to a float
+    
+    """
     #
     # Extends      : float
     #
@@ -50,7 +59,16 @@ class number(float):
             return False
 
 class colorAttribute(int):
-
+    """
+    Subclass of the int datatype.  Used to represent a color attribute.
+    Valid values are from 0 to 255.
+    
+    Can be created in two ways:
+    
+        x = colorAttribute(255)
+        x = colorAttribute('FF')
+    
+    """
     #
     # Extends      : int
     #
@@ -74,6 +92,9 @@ class colorAttribute(int):
         return '{:02X}'.format(self)
 
 class numberPercent(number):
+    """
+    Subclass of number class.  Used to represent a percentage value between 0.0 and 1.0
+    """
 
     #
     # Extends      : number
@@ -90,6 +111,9 @@ class numberPercent(number):
             raise ValueError('Value out of range')
 
 class angle90(number):
+    """
+    Subclass of number class.  Used to represent an angle value between -90.0 and 90.0
+    """
 
     #
     # Extends      : number
@@ -98,7 +122,7 @@ class angle90(number):
     #
     # Contains     :
     #
-    # Contained By :
+    # Contained By : Coords
     # 
 
     def __init__(self, value):
@@ -106,7 +130,9 @@ class angle90(number):
             raise ValueError('Value out of range')
 
 class angle180(number):
-
+    """
+    Subclass of number class.  Used to represent an angle value between -180.0 and 1800.0
+    """
     #
     # Extends      : number
     #
@@ -122,6 +148,9 @@ class angle180(number):
             raise ValueError('Value out of range')
 
 class angle360(number):
+    """
+    Subclass of number class.  Used to represent an angle value between 0.0 and 360.0
+    """
 
     #
     # Extends      : number
@@ -138,6 +167,20 @@ class angle360(number):
             raise ValueError('Value out of range')
 
 class boolean(int):
+    """
+    Subclass of int class.  Used to represent a boolean.  Holds a value of 1 for true, 0 for false.
+    NOTE: ALL non-false values are considered True
+    
+    Can be created in several ways:
+    
+        x = boolean('1')   (returns 1 - True)
+        x = boolean(1)     (returns 1 - True)
+        x = boolean('0')   (returns 0 - True)
+        x = boolean(0)     (returns 0 - True)
+        x = boolean(False) (returns 0 - True)
+        x = boolean('No')  (returns 0 - True)
+        x = boolean('Off') (returns 0 - True)
+    """
 
     #
     # Extends      : int
@@ -151,7 +194,7 @@ class boolean(int):
 
     # ANY value that is not 0 or boolean False is considered True
     def __new__(self, value):
-        if str(value) == '0' or str(value) == 'False':
+        if str(value) == '0' or str(value) == 'False' or str(value.lower()) == 'no' or str(value.lower()) == 'off':
             return int.__new__(self, 0)
         else:
             return int.__new__(self, 1)
@@ -169,7 +212,13 @@ class boolean(int):
 ################################################################################################
 
 class KMLObject(object):
-
+    """
+    This is an abstract base class and cannot be used directly in a KML file. It 
+    provides the id attribute, which allows unique identification of a KML element,
+    and the targetId attribute, which is used to reference objects that have
+    already been loaded into Google Earth. The id attribute must be assigned if the
+    <Update> mechanism is to be used.
+    """
     #
     # Extends:
     #
@@ -190,6 +239,17 @@ class KMLObject(object):
         self.set(**kwargs)
 
     def set(self, **kwargs):
+        """
+        Sets any properties or attributes for this object via keywords.
+        If the object does not contain a property matching the keyword,
+        it is ignored.
+        
+        All object attributes should be wrapped by properties.  This
+        allows for grated control and data validation when assigning
+        values.
+        
+        Keywords and properties/attributes are case sensitive.
+        """
         for k in kwargs:
             if hasattr(self, k):
                 setattr(self, k, kwargs[k])
@@ -207,6 +267,12 @@ class KMLObject(object):
 
     @property
     def id(self):
+        """
+        Many object contain an ID tag for later reference.
+        
+        If set, this property will return the tag.  if not, it returns and empty
+        string.
+        """
         if self.__id is None:
             return ''
         else:
@@ -217,6 +283,14 @@ class KMLObject(object):
         self.__id = id
 
     def _set_parent(self, parent):
+        """
+        Setting the parent property creates an object hierarchy.  This allows proper
+        indentation of tags when outputting kml tags to file.
+        
+        The parent property is simply assigned:
+        
+            x.parent = self
+        """
         if parent is not None:
             self.__parent = parent
             self.depth = parent.depth + 1
@@ -234,10 +308,19 @@ class KMLObject(object):
 
     @property
     def indent(self):
+        """
+        Returns a given number of spaces for the objects level in the object tree
+        """
         return ' ' * self.depth
 
 class KMLContainer(KMLObject):
-
+    """
+    Abstract class that manages a collection of child objects.
+    
+    Any object can be added to a collection using the append or insert methods.
+    
+    """
+    
     #
     # Extends      : KMLObkect
     #
@@ -274,22 +357,40 @@ class KMLContainer(KMLObject):
 
     @property
     def depth(self):
-        # Depth property is redefined in a container object to facilitate cascading of depth property to child elements
+        """
+        depth attribute is wrapped using properties in order to cascade updates to 
+        child objects when updated.
+        """
         return self.__depth
 
     @depth.setter
     def depth(self, d):
-        # Depth property is redefined in a container object to facilitate cascading of depth property to child elements
         self.__depth = d
         logging.debug('KMLContainer updating child depths')
         for child in self.__elements:
             child.depth = self.__depth + 1
 
     def remove(self, item):
+        """
+        Remove an item from the collection by reference.
+        
+        Example:
+            c = KMLCollection()
+            o = KMLObject
+            
+            * o references the object
+            
+            c.remove(o)
+        
+        See also: find
+        """
         logging.debug('KMLContainer removing {} from collection'.format(str(item)))
         self.__elements.remove(item)
 
     def append(self, item):
+        """
+        Append an object to the end of the collection.
+        """
         # if type(item) is Document: TODO: Uncomment this later
         #    raise TypeError('Document objects cannot be child objects')
         if item is not None:
@@ -300,6 +401,9 @@ class KMLContainer(KMLObject):
                 logging.debug('KMLContainer adding {} to collection'.format(item.__class__.__name__))
 
     def insert(self, position, item):
+        """
+        Insert an object at a specific index of the collection.
+        """
         if item is not None:
             if item.parent is not self:
                 item.parent = self  # This triggers an append
@@ -311,6 +415,10 @@ class KMLContainer(KMLObject):
                 self.__elements.insert(position, item)
 
     def find(self, id):
+        """
+        Return reference to an object in the collection by ID.  If the ID is not
+        found, a ValueError is raised.
+        """
         # Return reference to an element by id
         # Raises ValueError exception if ID is not found
         for e in self.__elements:
@@ -318,27 +426,32 @@ class KMLContainer(KMLObject):
                 return e
         raise ValueError('{} is not in elements'.format(id))
 
-#    def replace(self, item):
-#        self[self.index(self.find(item))] = item
-
     def __len__(self):
         return len(self.__elements)
 
     def __contains__(self, x):
-        # Allows the 'in' opperator to be used to check for the existance of an element
+        """
+        Allows the 'in' opperator to be used to check for the existance of an element
+        """
         return x in self.__elements
 
     def __iter__(self):
-        # Allows itteration over elements
+        """
+        Allows itteration over elements
+        """
         for x in self.__elements:
             yield x
 
     def __getitem__(self, index):
-        # Return an element by index
+        """
+        Return an element by index
+        """
         return self.__elements[index]
 
     def __setitem__(self, index, item):
-        # Set an element by index
+        """
+        Set an element by index
+        """
         self.__elements[index] = item
 
     def index(self, item):
@@ -350,7 +463,10 @@ class KMLContainer(KMLObject):
             self.__elements.pop(index)
 
 class KMLFeature(KMLObject):
-
+    """
+    This is an abstract element and cannot be used directly in a KML file.
+    The following diagram shows how some of a Feature's elements appear in Google Earth.
+    """
     #
     # Extends      : KMLObject
     #
@@ -1965,6 +2081,7 @@ class Style(KMLObject):
         self.__balloon = None
         self.__list = None
         self.set(**kwargs)
+        logger.debug('Style created')
     
     @property
     def iconStyle(self):
@@ -1975,6 +2092,7 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not IconStyle:
                 raise TypeError('iconStyle must be of type IconStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__icon = value
     
     @property
@@ -1986,6 +2104,7 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not LabelStyle:
                 raise TypeError('labelStyle must be of type LabelStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__label = value
     
     @property
@@ -1997,10 +2116,11 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not LineStyle:
                 raise TypeError('lineStyle must be of type LineStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__line = value
     
     @property
-    def polylStyle(self):
+    def polyStyle(self):
         return self.__poly
     
     @polyStyle.setter
@@ -2008,6 +2128,7 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not PolyStyle:
                 raise TypeError('polyStyle must be of type PolyStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__poly = value
     
     @property
@@ -2019,6 +2140,7 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not BalloonStyle:
                 raise TypeError('balloonStyle must be of type BalloonStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__balloon = value
     
     @property
@@ -2030,6 +2152,7 @@ class Style(KMLObject):
         if value is not None:
             if type(value) is not ListStyle:
                 raise TypeError('listStyle must be of type ListStyle, not {}'.format(type(value)))
+            value.parent = self
         self.__list = value
     
     def __str__(self):
@@ -2047,6 +2170,7 @@ class Style(KMLObject):
         if self.__list is not None:
             tmp += str(self.__list)
         tmp += self.indent + '</Style>'
+        return tmp
         
     
     
