@@ -56,11 +56,11 @@ class colorAttribute(int):
     #
     # Contains     :
     #
-    # Contained By :
+    # Contained By : Color
     # 
 
-    def __new__(self,value = 0):
-        if type(value) in [int, str]:
+    def __new__(self, value=0):
+        if type(value) not in [int, str]:
             raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
         if type(value) is str:
             value = int(value, 16)
@@ -177,7 +177,7 @@ class KMLObject(object):
                 setattr(self, k, kwargs[k])
             else:
                 pass
-                #raise AttributeError('Invalid attribute {}'.format(k)
+                # raise AttributeError('Invalid attribute {}'.format(k)
 
     @property
     def parent(self):
@@ -272,7 +272,7 @@ class KMLContainer(KMLObject):
         self.__elements.remove(item)
 
     def append(self, item):
-        #if type(item) is Document: TODO: Uncomment this later
+        # if type(item) is Document: TODO: Uncomment this later
         #    raise TypeError('Document objects cannot be child objects')
         if item is not None:
             if item.parent is not self:  # Stop recursive calls
@@ -284,10 +284,10 @@ class KMLContainer(KMLObject):
     def insert(self, position, item):
         if item is not None:
             if item.parent is not self:
-                item.parent = self                     # This triggers an append
-                self.__elements.remove(item)           # Remove it from the end
+                item.parent = self  # This triggers an append
+                self.__elements.remove(item)  # Remove it from the end
                 logging.debug('KMLContainer inserting {} to collection at {}'.format(str(item), position))
-                self.__elements.insert(position, item) # Insert it where we want it
+                self.__elements.insert(position, item)  # Insert it where we want it
             if item not in self.__elements:
                 logging.debug('KMLContainer inserting {} to collection at {}'.format(str(item), position))
                 self.__elements.insert(position, item)
@@ -326,7 +326,7 @@ class KMLContainer(KMLObject):
     def index(self, item):
         return self.__elements.index(item)
 
-    def pop(self, index = 0):
+    def pop(self, index=0):
         # Used to delete an element by index
         if len(self.__elements) > 0:
             self.__elements.pop(index)
@@ -495,7 +495,7 @@ class KMLFeature(KMLObject):
     @styleSelector.setter
     def styleSelector(self, value):
         if value is not None:
-            if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap, IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle, ColorStyle
+            if type(value) not in [Style, StyleMap]:  # TODO: Write Style, StyleMap, IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle, ColorStyle
                 raise ValueError('styleSelector must be of type IconStyle,  LabelStyle, LineStyle, PolyStyle, BaloonStyle, ListStyle or ColorStyle, not {}'.format(type(value)))
         self.__styleSelector = value
 
@@ -506,7 +506,7 @@ class KMLFeature(KMLObject):
     @styleURL.setter
     def styleURL(self, value):
         if value is not None:
-            if type(value) not in [Style, StyleMap]: # TODO: Write Style, StyleMap
+            if type(value) not in [Style, StyleMap]:  # TODO: Write Style, StyleMap
                 raise ValueError('styleURL must be of type Style or StyleMap, not {}'.format(type(value)))
         self.__styleURL = value
 
@@ -517,7 +517,7 @@ class KMLFeature(KMLObject):
     @region.setter
     def region(self, value):
         if value is not None:
-            if type(value) not in [Region]: # TODO: Write Region
+            if type(value) not in [Region]:  # TODO: Write Region
                 raise ValueError('region must be of type Region, not {}'.format(type(value)))
         self.__region = value
 
@@ -528,7 +528,7 @@ class KMLFeature(KMLObject):
     @metadata.setter
     def metadata(self, value):
         if value is not None:
-            if type(value) not in [Metadata]: # TODO: Write Metadata
+            if type(value) not in [Metadata]:  # TODO: Write Metadata
                 raise ValueError('metadata must be of type MetaData, not {}'.format(type(value)))
         self.__metadata = value
 
@@ -539,7 +539,7 @@ class KMLFeature(KMLObject):
     @extendedData.setter
     def extendedData(self, value):
         if value is not None:
-            if type(value) not in [extendedData]: # TODO: Write Style, StyleMap
+            if type(value) not in [extendedData]:  # TODO: Write Style, StyleMap
                 raise ValueError('extendedData must be of type ExtendedData, not {}'.format(type(value)))
         self.__extendedData = value
 
@@ -547,7 +547,7 @@ class KMLFeature(KMLObject):
         logging.debug('KMLFeature outputting child kml elements')
         tmp = ''
         # Output any value based attributes
-        for a in ['name','description','visibility','open','phoneNumber','address']:
+        for a in ['name', 'description', 'visibility', 'open', 'phoneNumber', 'address']:
             if getattr(self, a) is not None:
                 tmp += self.indent + ' <{}>{}</{}>\n'.format(a, getattr(self, a), a)
         # Output any special case attributes
@@ -560,7 +560,7 @@ class KMLFeature(KMLObject):
             tmp += self.indent + '  <atom:name>{}</atom:name>\n'.format(self.author)
             tmp += self.indent + ' </atom:author>\n'
         # Output any object based attributes
-        for a in ['snippet','view','time','styleURL','styleSelector','region','metadata','extendedData']:
+        for a in ['snippet', 'view', 'time', 'styleURL', 'styleSelector', 'region', 'metadata', 'extendedData']:
             tmp += str(getattr(self, a))
         return tmp
 
@@ -637,7 +637,7 @@ class Snippet(KMLObject):
     # Introduces a maxLines property
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__content= ''
+        self.__content = ''
         self.__maxLines = 2
         self.set(**kwargs)
         logging.debug('Snippet created')
@@ -700,7 +700,7 @@ class gx_ViewerOptions(KMLObject):
 
     @enabled.setter
     def enabled(self, value):
-        self.__enabled=boolean(value)
+        self.__enabled = boolean(value)
 
 
     def __str__(self):
@@ -725,7 +725,7 @@ class Coords(KMLObject):
         super().__init__(**kwargs)
         self.__lat = angle90(0)
         self.__lon = angle180(0)
-        self.__alt = None #number(0)
+        self.__alt = None  # number(0)
         self.set(**kwargs)
         logging.debug('Coords created')
 
@@ -778,7 +778,7 @@ class Heading(Coords):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__heading = None #angle360(0)
+        self.__heading = None  # angle360(0)
         self.set(**kwargs)
         logging.debug('Heading created')
 
@@ -813,7 +813,7 @@ class ViewCoords(Heading):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__tilt = None #angle180(0)
+        self.__tilt = None  # angle180(0)
         self.set(**kwargs)
         logging.debug('ViewCoords created')
 
@@ -848,7 +848,7 @@ class CameraCoords(ViewCoords):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__roll = None #angle180(roll)
+        self.__roll = None  # angle180(roll)
         self.set(**kwargs)
 
     @property
@@ -882,7 +882,7 @@ class LookAtCoords(ViewCoords):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__range = None #number(range)
+        self.__range = None  # number(range)
         logging.debug('LookAtCoords created')
 
     @property
@@ -918,7 +918,7 @@ class Camera(KMLView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.coords = CameraCoords(**kwargs)
-        self.coords.set(parent = self)
+        self.coords.set(parent=self)
         logging.debug('Camera created')
 
     def __str__(self):
@@ -943,7 +943,7 @@ class LookAt(KMLView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.coords = LookAtCoords(**kwargs)
-        self.coords.set(parent = self)
+        self.coords.set(parent=self)
         logging.debug('LookAt created')
 
     def __str__(self):
@@ -965,7 +965,7 @@ class KMLDateTime(object):
     # Contained By : TimeSpan, TimeStamp
     #
 
-    def __init__(self, value = datetime.now(), format = 'Z'):
+    def __init__(self, value=datetime.now(), format='Z'):
         self.__value = None
         self.format = format
         self.value = value
@@ -979,11 +979,11 @@ class KMLDateTime(object):
             return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
         if self.__format in ['YMD', 'dateTime']:
             return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
-        if self.__format in ['Z']:    # TODO: Is there a name for this format in the XML Schema?
+        if self.__format in ['Z']:  # TODO: Is there a name for this format in the XML Schema?
             return self.__value.isoformat().split('.')[0] + 'Z'
         if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
             d = datetime.now() - datetime.utcnow()
-            t = d.seconds + round(d.microseconds/1000000)
+            t = d.seconds + round(d.microseconds / 1000000)
             return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
 
     @value.setter
@@ -1020,13 +1020,13 @@ class KMLDateTime(object):
                     try:
                         value = datetime.strptime(value, '%Y-%m-%dThh:mm:ssZ')
                     except:
-                        raise  #Raise what ever error gets thrown if it doesnt work
+                        raise  # Raise what ever error gets thrown if it doesnt work
                 elif self.__format in ['UTC']:
                     # Strip the ':' out of the timezone part and use strptime to convert the string to a datetime
                     try:
-                        value = datetime.strptime(value[:len(value)-6] + value[len(value)-6:].replace(':',''),'%Y-%m-%dT%H:%M:%S%z')
+                        value = datetime.strptime(value[:len(value) - 6] + value[len(value) - 6:].replace(':', ''), '%Y-%m-%dT%H:%M:%S%z')
                     except:
-                        raise  #Raise what ever error gets thrown if it doesnt work
+                        raise  # Raise what ever error gets thrown if it doesnt work
             if type(value) is not datetime:
                 raise TypeError('Value must be of type datetime, not {}'.format(type(value)))
         self.__value = value
@@ -1037,11 +1037,11 @@ class KMLDateTime(object):
 
     @format.setter
     def format(self, value):
-        if value not in ['Y', 'gYear',       # Year only
-                         'YM', 'gYearMonth', # Year and Month
+        if value not in ['Y', 'gYear',  # Year only
+                         'YM', 'gYearMonth',  # Year and Month
                          'YMD', 'dateTime',  # Year, Month and Day
-                         'Z',                # Full Date/Time UTC
-                         'UTC']:             # Full Date/Time with UTC conversion
+                         'Z',  # Full Date/Time UTC
+                         'UTC']:  # Full Date/Time with UTC conversion
             raise ValueError('Format pattern does not match')
         self.__format = value
 
@@ -1134,17 +1134,34 @@ class Color(object):
     #
     # Extended by  :
     #
-    # Contains     :
+    # Contains     : colorAttribute
     #
     # Contained by : ColorStyle
     #
 
-    def __init__(self, alpha = 0, red = 0, green = 0, blue = 0):
-        self.__alpha = colorAttribute(alpha)
-        self.__red = colorAttribute(red)
-        self.__green = colorAttribute(green)
-        self.__blue = colorAttribute(blue)
+    def __init__(self, **kwargs):
+        
+        self.__alpha = colorAttribute(0)
+        self.__red = colorAttribute(0)
+        self.__green = colorAttribute(0)
+        self.__blue = colorAttribute(0)
+        self.__setup(**kwargs)
 
+    def __setup(self, **kwargs):
+        for k in kwargs:
+            setattr(self, k, kwargs[k])
+    
+    @property
+    def color(selfself):
+        return self.__str__()
+    
+    @color.setter
+    def color(self, value):
+        self.__alpha = colorAttribute(value[:2])
+        self.__red = colorAttribute(value[2:4])
+        self.__green = colorAttribute(value[4:6])
+        self.__blue = colorAttribute(value[6:8])
+    
     @property
     def alpha(self):
         return self.__alpha
@@ -1178,7 +1195,7 @@ class Color(object):
         self.__blue = colorAttribute(value)
 
     def __str__(self):
-        return str(self.__alpha) +  str(self.__red) +  str(self.__green) +  str(self.__blue)
+        return str(self.__alpha) + str(self.__red) + str(self.__green) + str(self.__blue)
 
 class ColorStyle(KMLObject):
 
