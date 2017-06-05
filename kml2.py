@@ -71,6 +71,22 @@ class colorAttribute(int):
     def __str__(self):
         return '{:02X}'.format(self)
 
+class numberPercent(number):
+
+    #
+    # Extends      : number
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained By : LineStyle
+    # 
+
+    def __init__(self, value):
+        if not (0.0 <= value <= 1.0):
+            raise ValueError('Value out of range')
+
 class angle90(number):
 
     #
@@ -970,6 +986,7 @@ class KMLDateTime(object):
         self.format = format
         self.value = value
         self.__precision = 4
+        logging.debug('KMLDateTime created')
 
     @property
     def value(self):
@@ -1062,6 +1079,7 @@ class TimeSpan(KMLObject):
         self.__begin = None
         self.__end = None
         self.set(**kwargs)
+        logging.debug('TimeSpan created')
 
     @property
     def begin(self):
@@ -1110,6 +1128,7 @@ class TimeStamp(KMLObject):
         super().__init__(**kwargs)
         self.__when = None
         self.set(**kwargs)
+        logging.debug('TimeStamp created')
 
     @property
     def when(self):
@@ -1146,6 +1165,7 @@ class Color(object):
         self.__green = colorAttribute(0)
         self.__blue = colorAttribute(0)
         self.__setup(**kwargs)
+        logging.debug('Color created')
 
     def __setup(self, **kwargs):
         for k in kwargs:
@@ -1197,7 +1217,7 @@ class Color(object):
     def __str__(self):
         return str(self.__alpha) + str(self.__red) + str(self.__green) + str(self.__blue)
 
-class ColorStyle(KMLObject):
+class KMLColorStyle(KMLObject):
 
     #
     # Extends      : KMLObject
@@ -1216,6 +1236,7 @@ class ColorStyle(KMLObject):
         self.__color = None
         self.__colorMode = None
         self.set(**kwargs)
+        logging.debug('KMLColorStyle created')
 
     @property
     def color(self):
@@ -1248,26 +1269,27 @@ class ColorStyle(KMLObject):
         return tmp
 
 
-class LineStyle(ColorStyle):
+class LineStyle(KMLColorStyle):
 
     #
     # Extends      : ColorStyle
     #
     # Extended by  :
     #
-    # Contains     : Color, number, boolean
+    # Contains     : Color, number, boolean, numberPercent
     #
-    # Contained by :
+    # Contained by : Style
     #
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__width = None
-        self.__color = None
+        self.__width = None                         # Width of the line in pixels
+        self.__outerColor = None                    # Color of the portion of the line defined by gx:outerWidth
         self.__outerWidth = None
         self.__physicalWidth = None
         self.__labelVisibility = None
         self.set(**kwargs)
+        logging.debug('LineStyle created')
 
     @property
     def width(self):
@@ -1281,25 +1303,46 @@ class LineStyle(ColorStyle):
             self.__width = None
 
     @property
-    def color(self):
-        return self.__color
+    def outerColor(self):
+        """
+        Color of the portion of the line defined by <gx:outerWidth>.
+        Note that the <gx:outerColor> and <gx:outerWidth> elements are ignored when
+        <LineStyle> is applied to <Polygon> and <LinearRing>.
+        
+        Example:
+            x.outerColor = Color(red=255, green = 0, blue = 255, alpha = 0)
+        
+        Args:
+            value: (:obj:`Color`): Color attributes of the outerColor
+        
+        Returns:
+            obj:`Color`
+        """
+        return self.__outerColor
 
-    @color.setter
-    def color(self, value):
+    @outerColor.setter
+    def outerColor(self, value):
         if value is not None:
             if type(value) is not Color:
-                raise TypeError('color must be of type Color, not {}'.format(type(value)))
-        self.__color = value
+                raise TypeError('outerColor must be of type Color, not {}'.format(type(value)))
+        self.__outerColor = value
 
 
     @property
     def outerWidth(self):
+        """
+        A value between 0.0 and 1.0 that specifies the proportion of the line that uses the <gx:outerColor>. 
+        Only applies to lines setting width with <gx:physicalWidth>; it does not apply to lines using <width>.
+        See also <gx:drawOrder> in <LineString>.
+        A draw order value may be necessary if dual-colored lines are crossing each other—for example,
+        for showing freeway interchanges.
+        """
         return self.__outerWidth
 
     @outerWidth.setter
     def outerWidth(self, value):
         if value is not None:
-            self.__outerWidth = number(value)
+            self.__outerWidth = numberPercent(value)
         else:
             self.__outerWidth = None
 
@@ -1330,17 +1373,205 @@ class LineStyle(ColorStyle):
         tmp += super().__str__()
         if self.__width is not None:
             tmp += self.indent + ' <width>{}</width>\n'.format(self.__width)
-        if self.__color is not None:
-            tmp += self.indent + ' <outerColor>{}</outerColor>\n'.format(str(self.__color))
+        if self.__outerColor is not None:
+            tmp += self.indent + ' <gx:outerColor>{}</gx:outerColor>\n'.format(str(self.__outerColor))
         if self.__outerWidth is not None:
-            tmp += self.indent + ' <outerWidth>{}</outerWidth>\n'.format(str(self.__outerWidth))
+            tmp += self.indent + ' <gx:outerWidth>{}</gx:outerWidth>\n'.format(str(self.__outerWidth))
         if self.__physicalWidth is not None:
-            tmp += self.indent + ' <physicalWidth>{}</physicalWidth>\n'.format(str(self.__physicalWidth))
+            tmp += self.indent + ' <gx:physicalWidth>{}</gx:physicalWidth>\n'.format(str(self.__physicalWidth))
         if self.__labelVisibility is not None:
-            tmp += self.indent + ' <labelVisibility>{}</labelVisibility>\n'.format(str(self.__labelVisibility))
+            tmp += self.indent + ' <gx:labelVisibility>{}</gx:labelVisibility>\n'.format(str(self.__labelVisibility))
         tmp += self.indent + '</LineStyle>\n'
         return tmp
 
+class KMLVec(KMLObject):
+    """
+    Specifies the position within the Icon that is "anchored" to the <Point>
+    specified in the Placemark. The x and y values can be specified in three
+    different ways: as pixels ("pixels"), as fractions of the icon ("fraction"),
+    or as inset pixels ("insetPixels"), which is an offset in pixels from the upper
+    right corner of the icon. The x and y positions can be specified in different
+    ways—for example, x can be in pixels and y can be a fraction. The origin of the
+    coordinate system is in the lower left corner of the icon.
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained by : IconStyle
+    #
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.__x = 0
+        self.__y = 0
+        self.__xUnits = None
+        self.__yUnits = None
+        self.set(**kwargs)
+        logging.debug('KMLVec created')
+    
+    @property
+    def x(self):
+        """
+        Either the number of pixels, a fractional component of the icon, or a pixel
+        inset indicating the x component of a point on the icon.
+        """
+        return self.__x
+    
+    @x.setter
+    def x(self, value):
+        self.__x = number(value)
+        
+    @property
+    def y(self):
+        """
+        Either the number of pixels, a fractional component of the icon, or a pixel
+        inset indicating the y component of a point on the icon.
+        """
+        return self.__y
+    
+    @x.setter
+    def y(self, value):
+        self.__y = number(value)
+
+    @property
+    def xUnits(self):
+        """
+        Units in which the x value is specified. A value of fraction indicates the x
+        value is a fraction of the icon. A value of pixels indicates the x value in
+        pixels. A value of insetPixels indicates the indent from the right edge of the
+        icon.
+        """
+        return self.__xUnits
+    
+    @x.setter
+    def xUnits(self, value):
+        if value is not None:
+            if value not in ['fraction','pixels','insertPixels']:
+                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
+        self.__xUnits = value
+        
+    @property
+    def yUnits(self):
+        """
+        Units in which the y value is specified. A value of fraction indicates the y
+        value is a fraction of the icon. A value of pixels indicates the y value in
+        pixels. A value of insetPixels indicates the indent from the top edge of the
+        icon.
+        """
+        return self.__yUnits
+    
+    @x.setter
+    def yUnits(self, value):
+        if value is not None:
+            if value not in ['fraction','pixels','insertPixels']:
+                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
+        self.__yUnits = value
+    
+    def __str__(self):
+        tmp = '<hotSpot x="{}" y="{}"'.format(self.__x,self.__y)
+        if self.__xUnits is not None:
+            tmp += ' xunits="{}"'.format(self.__xUnits)
+        if self.__yUnits is not None:
+            tmp += ' yunits="{}"'.format(self.yUnits)
+        tmp += '</hotSpot>\n'
+        return tmp
+
+class IconStyle(KMLColorStyle):
+    """
+    Specifies how icons for point Placemarks are drawn, both in the Places
+    panel and in the 3D viewer of Google Earth. The <Icon> element specifies
+    the icon image. The <scale> element specifies the x, y scaling of the
+    icon. The color specified in the <color> element of <IconStyle> is blended
+    with the color of the <Icon>.
+    """
+    #
+    # Extends      : KMLColorStyle
+    #
+    # Extended by  :
+    #
+    # Contains     : KMLVec, angle360
+    #
+    # Contained by : Style
+    #
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__scale = None
+        self.__heading = None
+        self.__icon = None
+        self.__hotSpot = None
+        self.set(**kwargs)
+        logging.debug('IconStyle created')
+    
+    @property
+    def scale(self):
+        """Resizes the icon."""
+        return self.__scale
+    
+    @scale.setter
+    def scale(self, value):
+        if value is not None:
+            self.__scale = number(value)
+        else:
+            self.__scale = None
+    
+    @property
+    def heading(self):
+        """
+        Direction (that is, North, South, East, West), in degrees.
+        Default=0 (North). Values range from 0 to 360 degrees
+        """
+        return self.__heading
+    
+    @heading.setter
+    def heading(self, value):
+        if value is not None:
+            self.__heading = angle360(value)
+        else:
+            self.__heading = None
+    
+    @property
+    def icon(self):
+        """
+        A custom Icon. An HTTP address or a local file specification used to load an icon.
+        """
+        return self.__icon
+    @icon.setter
+    def icon(self,value):
+        if type(value) is not str:
+            raise TypeError('icon must be of type str, not {}'.format(type(value)))
+        self.__icon = value
+    
+    @property
+    def hotSpot(self):
+        return self.__hotSpot
+    
+    @hotSpot.setter
+    def hotSpot(self, value):
+        if type(value) is not KMLVec:
+            raise TypeError('hoySpot must be of type hotSpot, not {}'.format(type(value)))
+        self.__hotSpot = value
+        self.hotSpot.parent = self
+    
+    def __str__(self):
+        tmp = self.indent + '<IconStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        if self.__scale is not None:
+            tmp += self.indent + ' <scale>{}</scale>\n'.format(self.__scale)
+        if self.__heading is not None:
+            tmp += self.indent + ' <heading>{}</heading>\n'.format(self.__heading)
+        if self.__icon is not None:
+            tmp += self.indent + ' <Icon>\n'
+            tmp += self.indent + '  <href>{}</href>\n'.format(self.__icon)
+            tmp += self.indent + ' </Icon>\n'
+        if self.__hotSpot is not None:
+            tmp += self.indent + ' ' + str(self.__hotSpot)
+        tmp += self.indent + '</IconStyle>\n'
+        return tmp
 class Style(KMLObject):
 
     #
@@ -1348,7 +1579,7 @@ class Style(KMLObject):
     #
     # Extended by  :
     #
-    # Contains     : StyleIcon, StyleLabel, StyleLine, StylePoly, StyleList, StyleBalloon
+    # Contains     : IconStyle, LabelStyle, LineStyle, PolyStyle, ListStyle, BalloonStyle
     #
     # Contained by : KMLFeature
     #
