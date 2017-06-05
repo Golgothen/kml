@@ -21,11 +21,11 @@ class number(float):
     #
     # Extends      : float
     #
-    # Extended by  :
+    # Extended by  : angle, angle90, angle180, angle360
     #
     # Contains     :
     #
-    # Contained By :
+    # Contained By : LabelStyle, IconStyle
     # 
 
     def __new__(self, value):
@@ -80,7 +80,7 @@ class numberPercent(number):
     #
     # Contains     :
     #
-    # Contained By : LineStyle
+    # Contained By : LineStyle,
     # 
 
     def __init__(self, value):
@@ -128,7 +128,7 @@ class angle360(number):
     #
     # Contains     :
     #
-    # Contained By :
+    # Contained By : IconStyle
     # 
 
     def __init__(self, value):
@@ -144,7 +144,7 @@ class boolean(int):
     #
     # Contains     :
     #
-    # Contained By : gx_ViewerOptions
+    # Contained By : gx_ViewerOptions, LineStyle
     # 
 
     # ANY value that is not 0 or boolean False is considered True
@@ -630,6 +630,102 @@ class KMLView(KMLObject):
             tmp += str(self.__viewer)
         if self.__time is not None:
             tmp += str(self.__time)
+        return tmp
+
+class KMLVec(KMLObject):
+    """
+    Specifies the position within the Icon that is "anchored" to the <Point>
+    specified in the Placemark. The x and y values can be specified in three
+    different ways: as pixels ("pixels"), as fractions of the icon ("fraction"),
+    or as inset pixels ("insetPixels"), which is an offset in pixels from the upper
+    right corner of the icon. The x and y positions can be specified in different
+    ways—for example, x can be in pixels and y can be a fraction. The origin of the
+    coordinate system is in the lower left corner of the icon.
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained by : IconStyle
+    #
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.__x = 0
+        self.__y = 0
+        self.__xUnits = None
+        self.__yUnits = None
+        self.set(**kwargs)
+        logging.debug('KMLVec created')
+    
+    @property
+    def x(self):
+        """
+        Either the number of pixels, a fractional component of the icon, or a pixel
+        inset indicating the x component of a point on the icon.
+        """
+        return self.__x
+    
+    @x.setter
+    def x(self, value):
+        self.__x = number(value)
+        
+    @property
+    def y(self):
+        """
+        Either the number of pixels, a fractional component of the icon, or a pixel
+        inset indicating the y component of a point on the icon.
+        """
+        return self.__y
+    
+    @x.setter
+    def y(self, value):
+        self.__y = number(value)
+
+    @property
+    def xUnits(self):
+        """
+        Units in which the x value is specified. A value of fraction indicates the x
+        value is a fraction of the icon. A value of pixels indicates the x value in
+        pixels. A value of insetPixels indicates the indent from the right edge of the
+        icon.
+        """
+        return self.__xUnits
+    
+    @x.setter
+    def xUnits(self, value):
+        if value is not None:
+            if value not in ['fraction','pixels','insertPixels']:
+                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
+        self.__xUnits = value
+        
+    @property
+    def yUnits(self):
+        """
+        Units in which the y value is specified. A value of fraction indicates the y
+        value is a fraction of the icon. A value of pixels indicates the y value in
+        pixels. A value of insetPixels indicates the indent from the top edge of the
+        icon.
+        """
+        return self.__yUnits
+    
+    @x.setter
+    def yUnits(self, value):
+        if value is not None:
+            if value not in ['fraction','pixels','insertPixels']:
+                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
+        self.__yUnits = value
+    
+    def __str__(self):
+        tmp = '<hotSpot x="{}" y="{}"'.format(self.__x,self.__y)
+        if self.__xUnits is not None:
+            tmp += ' xunits="{}"'.format(self.__xUnits)
+        if self.__yUnits is not None:
+            tmp += ' yunits="{}"'.format(self.yUnits)
+        tmp += '</hotSpot>\n'
         return tmp
 
 ################################################################################################
@@ -1384,102 +1480,6 @@ class LineStyle(KMLColorStyle):
         tmp += self.indent + '</LineStyle>\n'
         return tmp
 
-class KMLVec(KMLObject):
-    """
-    Specifies the position within the Icon that is "anchored" to the <Point>
-    specified in the Placemark. The x and y values can be specified in three
-    different ways: as pixels ("pixels"), as fractions of the icon ("fraction"),
-    or as inset pixels ("insetPixels"), which is an offset in pixels from the upper
-    right corner of the icon. The x and y positions can be specified in different
-    ways—for example, x can be in pixels and y can be a fraction. The origin of the
-    coordinate system is in the lower left corner of the icon.
-    """
-    #
-    # Extends      : KMLObject
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained by : IconStyle
-    #
-
-    def __init__(self,**kwargs):
-        super().__init__(**kwargs)
-        self.__x = 0
-        self.__y = 0
-        self.__xUnits = None
-        self.__yUnits = None
-        self.set(**kwargs)
-        logging.debug('KMLVec created')
-    
-    @property
-    def x(self):
-        """
-        Either the number of pixels, a fractional component of the icon, or a pixel
-        inset indicating the x component of a point on the icon.
-        """
-        return self.__x
-    
-    @x.setter
-    def x(self, value):
-        self.__x = number(value)
-        
-    @property
-    def y(self):
-        """
-        Either the number of pixels, a fractional component of the icon, or a pixel
-        inset indicating the y component of a point on the icon.
-        """
-        return self.__y
-    
-    @x.setter
-    def y(self, value):
-        self.__y = number(value)
-
-    @property
-    def xUnits(self):
-        """
-        Units in which the x value is specified. A value of fraction indicates the x
-        value is a fraction of the icon. A value of pixels indicates the x value in
-        pixels. A value of insetPixels indicates the indent from the right edge of the
-        icon.
-        """
-        return self.__xUnits
-    
-    @x.setter
-    def xUnits(self, value):
-        if value is not None:
-            if value not in ['fraction','pixels','insertPixels']:
-                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
-        self.__xUnits = value
-        
-    @property
-    def yUnits(self):
-        """
-        Units in which the y value is specified. A value of fraction indicates the y
-        value is a fraction of the icon. A value of pixels indicates the y value in
-        pixels. A value of insetPixels indicates the indent from the top edge of the
-        icon.
-        """
-        return self.__yUnits
-    
-    @x.setter
-    def yUnits(self, value):
-        if value is not None:
-            if value not in ['fraction','pixels','insertPixels']:
-                raise ValueError('Units must be fraction, pixels or insertPixels, not {}'.format(value))
-        self.__yUnits = value
-    
-    def __str__(self):
-        tmp = '<hotSpot x="{}" y="{}"'.format(self.__x,self.__y)
-        if self.__xUnits is not None:
-            tmp += ' xunits="{}"'.format(self.__xUnits)
-        if self.__yUnits is not None:
-            tmp += ' yunits="{}"'.format(self.yUnits)
-        tmp += '</hotSpot>\n'
-        return tmp
-
 class IconStyle(KMLColorStyle):
     """
     Specifies how icons for point Placemarks are drawn, both in the Places
@@ -1493,7 +1493,7 @@ class IconStyle(KMLColorStyle):
     #
     # Extended by  :
     #
-    # Contains     : KMLVec, angle360
+    # Contains     : KMLVec, angle360, number
     #
     # Contained by : Style
     #
@@ -1548,6 +1548,7 @@ class IconStyle(KMLColorStyle):
     
     @property
     def hotSpot(self):
+        """ See help(KMLVec) for more information on hotSpot. """
         return self.__hotSpot
     
     @hotSpot.setter
@@ -1572,6 +1573,105 @@ class IconStyle(KMLColorStyle):
             tmp += self.indent + ' ' + str(self.__hotSpot)
         tmp += self.indent + '</IconStyle>\n'
         return tmp
+
+class LabelStyle(KMLColorStyle):
+    """
+    Specifies how the <name> of a Feature is drawn in the 3D viewer. A custom color,
+    color mode, and scale for the label (name) can be specified.
+    """
+    #
+    # Extends      : KMLColorStyle
+    #
+    # Extended by  :
+    #
+    # Contains     : number
+    #
+    # Contained by : Style
+    #
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__scale = None
+        self.set(**kwargs)
+        logging.debug('LabelStyle created')
+    
+    @property
+    def scale(self):
+        """Resizes the label."""
+        return self.__scale
+    
+    @scale.setter
+    def scale(self, value):
+        if value is not None:
+            self.__scale = number(value)
+        else:
+            self.__scale = None
+
+    def __str__(self):
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        if self.__scale is not None:
+            tmp += self.indent + ' <scale>{}</scale>\n'.format(self.__scale)
+        tmp += self.indent + '</LabelStyle>\n'
+        return tmp
+   
+class PolyStyle(KMLColorStyle):
+    """
+    Specifies the drawing style for all polygons, including polygon extrusions
+    (which look like the walls of buildings) and line extrusions (which look
+    like solid fences).
+    """
+    #
+    # Extends      : KMLColorStyle
+    #
+    # Extended by  :
+    #
+    # Contains     : boolean
+    #
+    # Contained by : Style
+    #
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__fill = None
+        self.__outline = None
+        self.set(**kwargs)
+        logging.debug('PolyStyle created')
+    
+    @property
+    def fill(self):
+        """Boolean value. Specifies whether to fill the polygon."""
+        return self.__fill
+    
+    @fill.setter
+    def fill(self, value):
+        if value is not None:
+            self.__fill = boolean(value)
+        else:
+            self.__fill = None
+   
+    @property
+    def outline(self):
+        """Boolean value. Specifies whether to outline the polygon. Polygon outlines use the current LineStyle."""
+        return self.__outline
+    
+    @outline.setter
+    def outline(self, value):
+        if value is not None:
+            self.__outline = boolean(value)
+        else:
+            self.__outline = None
+   
+    def __str__(self):
+        tmp = self.indent + '<PolyStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        if self.__fill is not None:
+            tmp += self.indent + ' <fill>{}</fill>\n'.format(self.__fill)
+        if self.__outline is not None:
+            tmp += self.indent + ' <outline>{}</outline>\n'.format(self.__outline)
+        tmp += self.indent + '</PolyStyle>\n'
+        return tmp
+
 class Style(KMLObject):
 
     #
