@@ -1965,5 +1965,90 @@ class Style(KMLObject):
         self.__balloon = None
         self.__list = None
         self.set(**kwargs)
-
+    
+    @property
+    def iconStyle(self):
+        return self.__icon
+    
+    @iconStyle.setter
+    def iconStyle(self, value):
+        if value is not None:
+            if type(value) is not IconStyle:
+                raise TypeError('iconStyle must be of type IconStyle, not {}'.format(type(value)))
+        self.__icon = value
+    
+    @property
+    def labelStyle(self):
+        return self.__label
+    
+    @labelStyle.setter
+    def labelStyle(self, value):
+        if value is not None:
+            if type(value) is not LabelStyle:
+                raise TypeError('labelStyle must be of type LabelStyle, not {}'.format(type(value)))
+        self.__label = value
+    
+    @property
+    def lineStyle(self):
+        return self.__line
+    
+    @lineStyle.setter
+    def lineStyle(self, value):
+        if value is not None:
+            if type(value) is not LineStyle:
+                raise TypeError('lineStyle must be of type LineStyle, not {}'.format(type(value)))
+        self.__line = value
+    
+    @property
+    def polylStyle(self):
+        return self.__poly
+    
+    @polyStyle.setter
+    def polyStyle(self, value):
+        if value is not None:
+            if type(value) is not PolyStyle:
+                raise TypeError('polyStyle must be of type PolyStyle, not {}'.format(type(value)))
+        self.__poly = value
+    
+    @property
+    def balloonStyle(self):
+        return self.__balloon
+    
+    @balloonStyle.setter
+    def balloonStyle(self, value):
+        if value is not None:
+            if type(value) is not BalloonStyle:
+                raise TypeError('balloonStyle must be of type BalloonStyle, not {}'.format(type(value)))
+        self.__balloon = value
+    
+    @property
+    def listStyle(self):
+        return self.__list
+    
+    @listStyle.setter
+    def listStyle(self, value):
+        if value is not None:
+            if type(value) is not ListStyle:
+                raise TypeError('listStyle must be of type ListStyle, not {}'.format(type(value)))
+        self.__list = value
+    
+    def __str__(self):
+        tmp = self.indent + '<Style{}>\n'.format(self.id)
+        if self.__icon is not None:
+            tmp += str(self.__icon)
+        if self.__line is not None:
+            tmp += str(self.__line)
+        if self.__poly is not None:
+            tmp += str(self.__poly)
+        if self.__label is not None:
+            tmp += str(self.__label)
+        if self.__balloon is not None:
+            tmp += str(self.__balloon)
+        if self.__list is not None:
+            tmp += str(self.__list)
+        tmp += self.indent + '</Style>'
+        
+    
+    
+    
 
