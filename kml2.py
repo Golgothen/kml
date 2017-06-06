@@ -129,6 +129,25 @@ class angle90(number):
         if not (-90.0 <= value < 90.0):
             raise ValueError('Value out of range')
 
+class anglepos90(number):
+    """
+    Subclass of number class.  Used to represent an angle value between 0.0 and 90.0
+    """
+
+    #
+    # Extends      : number
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained By : ViewCoords
+    # 
+
+    def __init__(self, value):
+        if not (0.0 <= value <= 90.0):
+            raise ValueError('Value out of range')
+
 class angle180(number):
     """
     Subclass of number class.  Used to represent an angle value between -180.0 and 1800.0
@@ -1383,7 +1402,7 @@ class ViewCoords(Heading):
     #
     # Extended by  : CameraCoords, LookAtCoords
     #
-    # Contains     : angle180
+    # Contains     : anglepos90
     #
     # Contained by :
     #
@@ -1408,7 +1427,7 @@ class ViewCoords(Heading):
     @tilt.setter
     def tilt(self, value):
         if value is not None:
-            self.__tilt = angle180(value)
+            self.__tilt = anglepos90(value)
         else:
             self.__tilt = None
 
@@ -2746,3 +2765,67 @@ class Style(KMLObject):
         tmp += self.indent + '</Style>'
         return tmp
 
+class StyleMap(KMLObject):
+    """
+    A <StyleMap> maps between two different Styles. Typically a <StyleMap> element
+    is used to provide separate normal and highlighted styles for a placemark, so
+    that the highlighted version appears when the user mouses over the icon in
+    Google Earth.
+    
+    Can be created two ways:
+    
+        x = StyleMap()
+        x.setStyleURL('normal','#URLForNormal')
+        x.setStyleURL('highlight','#URLForHilight')
+        
+        or
+        
+        x = StyleMap(normal = '#URLForNormal', highlight = '#URLForHighlight')
+    """
+    def __init__(self, **kwargs):
+        self.__styleURL = dict()
+        super().__init__(**kwargs)
+        self.set(**kwargs)
+        
+    def set(self, **kwargs):
+        # Overload set method from the base class
+        for k in kwargs:
+            if k in ['normal','highlight']:
+                print(k)
+                print(self.__styleURL)
+                self.__styleURL[k] = kwargs[k]
+
+    def getStyleURL(self, key):
+        """
+        <styleUrl> or <Style>, which references the style. In <styleUrl>, for
+        referenced style elements that are local to the KML document, a simple
+        # referencing is used. For styles that are contained in external files, use
+         a full URL along with # referencing. For example:
+         
+             http://myserver.com/populationProject.xml#example_style_off
+        """
+        if key in self.__styleURL:
+            return self.__styleURL[key]
+        else:
+            raise KeyError('key {} not found'.format(key))
+    
+    def setStyleURL(self, key, value):
+        if type(key) is not str:
+            raise TypeError('key must be of type str, not {}'.format(type(key)))
+        if type(value) is not str:
+            raise TypeError('styleURL must be of type str, not {}'.format(type(value)))
+        if key not in ['normal','highlight']:
+            raise KeyError('key must be normal or highlight, not {}'.format(key))
+        self.__styleURL[key] = value
+        
+    
+    def __str__(self):
+        tmp = self.indent + '<StyleMap{}>\n'.format(self.id)
+        for p in self.__styleURL:
+            tmp += self.indent + ' <Pair>\n'
+            tmp += self.indent + '  <key>{}</key>\n'.format(p)
+            tmp += self.indent + '  <styleURL>{}</styleURL>\n'.format(self.__styleURL[p])
+            tmp += self.indent + ' </Pair>\n'
+        tmp += self.indent + '</StyleMap>\n'
+        return tmp
+    
