@@ -2791,8 +2791,6 @@ class StyleMap(KMLObject):
         # Overload set method from the base class
         for k in kwargs:
             if k in ['normal','highlight']:
-                print(k)
-                print(self.__styleURL)
                 self.__styleURL[k] = kwargs[k]
 
     def getStyleURL(self, key):
