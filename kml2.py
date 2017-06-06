@@ -1,6 +1,5 @@
 import logging
-from builtins import str
-from mako.runtime import _kwargs_for_callable
+
 logger = logging.getLogger()
 # Remove after testing
 f = logging.Formatter('%(levelname)-8s:%(funcName)-20s %(lineno)-5s:%(message)s')
@@ -10,7 +9,7 @@ logger.addHandler(h)
 logger.setLevel(logging.DEBUG)
 
 from datetime import datetime
-
+from inspect import getmro
 
 ################################################################################################
 #                                                                                              #
@@ -122,7 +121,7 @@ class angle90(number):
     #
     # Contains     :
     #
-    # Contained By : Coords
+    # Contained By : Coords, LatLonBox
     # 
 
     def __init__(self, value):
@@ -239,9 +238,10 @@ class KMLObject(object):
     <Update> mechanism is to be used.
     """
     #
-    # Extends:
+    # Extends      :
     #
-    # Extended by  : KMLContailer, , KMLFeature, KMLView, Snippet, gx_ViewerOptions, Coords, TimeSpan, TimeStamp, ColorStyle, Style,
+    # Extended by  : KMLContailer, , KMLFeature, KMLView, Snippet, gx_ViewerOptions, Coords, TimeSpan, 
+    #                TimeStamp, ColorStyle, Style, StyleMap, LatLonBox
     #
     # Contains     :
     #
@@ -343,7 +343,7 @@ class KMLContainer(KMLObject):
     #
     # Extends      : KMLObkect
     #
-    # Extended by  : Style
+    # Extended by  : Folder, Document
     #
     # Contains     :
     #
@@ -488,11 +488,11 @@ class KMLFeature(KMLObject):
     #
     # Extends      : KMLObject
     #
-    # Extended by  :
+    # Extended by  : KMLOverlay
     #
     # Contains     : Snippet, Camera/LookAt, TimeStamp/TimeSpan, Style, Region
     #
-    # Contained By :
+    # Contained By : Folder, Document
     # 
 
     # KML Feature object.
@@ -510,7 +510,7 @@ class KMLFeature(KMLObject):
         self.__snippet = None
         self.__view = None
         self.__time = None
-        self.__style = None
+        self.__styleURL = None
         self.__styleSelector = None
         self.__region = None
         self.__metadata = None
@@ -680,7 +680,7 @@ class KMLFeature(KMLObject):
         <a href="myserver.com/cgi-bin/generate-kml.php#placemark123"
            type="application/vnd.google-earth.kml+xml">
    """
-        return self.__decription
+        return self.__description
 
     @description.setter
     def description(self, value):
@@ -941,7 +941,7 @@ class KMLFeature(KMLObject):
     @extendedData.setter
     def extendedData(self, value):
         if value is not None:
-            if type(value) not in [extendedData]:  # TODO: Write Style, StyleMap
+            if type(value) not in [extendedData]:
                 raise ValueError('extendedData must be of type ExtendedData, not {}'.format(type(value)))
         self.__extendedData = value
 
@@ -953,19 +953,112 @@ class KMLFeature(KMLObject):
             if getattr(self, a) is not None:
                 tmp += self.indent + ' <{}>{}</{}>\n'.format(a, getattr(self, a), a)
         # Output any special case attributes
-        if self.link is not None:
+        if self.__link is not None:
             tmp += self.indent + ' <atom:link href="{}" />\n'.format(self.link)
-        if self.addressDetails is not None:
-            tmp += self.indent + ' <xal:AddressDetails>{}</xal:AddressDetails>\n'.format(a, getattr(self, a), a)
-        if self.author is not None:
+        if self.__addressDetails is not None:
+            tmp += self.indent + ' <xal:AddressDetails>{}</xal:AddressDetails>\n'.format(self.__addressDetails)
+        if self.__author is not None:
             tmp += self.indent + ' <atom:author>\n'
-            tmp += self.indent + '  <atom:name>{}</atom:name>\n'.format(self.author)
+            tmp += self.indent + '  <atom:name>{}</atom:name>\n'.format(self.__author)
             tmp += self.indent + ' </atom:author>\n'
         # Output any object based attributes
         for a in ['snippet', 'view', 'time', 'styleURL', 'styleSelector', 'region', 'metadata', 'extendedData']:
-            tmp += str(getattr(self, a))
+            if getattr(self, a) is not None:
+                tmp += str(getattr(self, a))
         return tmp
 
+class KMLOverlay(KMLFeature):
+    """
+    This is an abstract element and cannot be used directly in a KML file. <Overlay>
+    is the base type for image overlays drawn on the planet surface or on the screen.
+    <Icon> specifies the image to use and can be configured to reload images based on
+    a timer or by camera changes. This element also includes specifications for
+    stacking order of multiple overlays and for adding color and transparency values
+    to the base image.
+    """
+    #
+    # Extends      : KMLFeature
+    #
+    # Extended by  : GroundOverlay, ScreenOverlay, PhotoOverlay
+    #
+    # Contains     : Color, number
+    #
+    # Contained By :
+    # 
+    
+    def __init__(self, **kwargs):
+        self.__color = None
+        self.__drawOrder = None
+        self.__icon = None
+        super().__init__(**kwargs)
+        logger.debug('KMLOverlay created')
+        
+    @property
+    def color(self):
+        """
+        Color values are expressed in hexadecimal notation, including opacity (alpha)
+        values. The order of expression is alpha, blue, green, red (aabbggrr). The range
+        of values for any one color is 0 to 255 (00 to ff). For opacity, 00 is fully
+        transparent and ff is fully opaque. For example, if you want to apply a blue
+        color with 50 percent opacity to an overlay, you would specify the following:
+        
+            <color>7fff0000</color>
+        """
+        return self.__color
+    
+    @color.setter
+    def color(self, value):
+        if value is not None:
+            if type(value) is not Color:
+                raise TypeError('color must be of type Color, not {}'.format(type(value)))
+        self.__color = value
+        
+    @property
+    def drawOrder(self):
+        """
+        This element defines the stacking order for the images in overlapping overlays.
+        Overlays with higher <drawOrder> values are drawn on top of overlays with lower
+        <drawOrder> values.
+        """
+        return self.__drawOrder
+    
+    @drawOrder.setter
+    def drawOrder(self, value):
+        if value is not None:
+            self.__drawOrder = number(value)
+        else:
+            self.__drawOrder = None 
+
+    @property
+    def Icon(self):
+        """
+        Defines the image associated with the Overlay. The <href> element defines the
+        location of the image to be used as the Overlay. This location can be either on
+        a local file system or on a web server. If this element is omitted or contains
+        no <href>, a rectangle is drawn using the color and size defined by the ground
+        or screen overlay.
+        """
+        return self.__icon
+    
+    @Icon.setter
+    def Icon(self, value):
+        if value is not None:
+            if type(value) is not str:
+                raise TypeError('Icon must be of type str, not {}'.format(type(value)))
+        self.__icon = value
+    
+    def __str__(self):
+        tmp = super().__str__()
+        if self.__color is not None:
+            tmp += self.indent + ' <color>{}</color>\n'.format(str(self.__color))
+        if self.__drawOrder is not None:
+            tmp += self.indent + ' <drawOrder>{}</drawOrder>\n'.format(str(self.__drawOrder))
+        if self.__icon is not None:
+            tmp += self.indent + ' <Icon>\n'
+            tmp += self.indent + '  <href>{}</href>\n'.format(str(self.__icon))
+            tmp += self.indent + ' </Icon>\n'
+        return tmp
+    
 class KMLView(KMLObject):
     """
     This is an abstract element and cannot be used directly in a KML file.
@@ -978,7 +1071,7 @@ class KMLView(KMLObject):
     #
     # Contains     :
     #
-    # Contained By : KMLFeatuyre
+    # Contained By : KMLFeature
     # 
 
     # Abstract class for View objects
@@ -1171,6 +1264,202 @@ class KMLVec(KMLObject):
 #   KML Object definitions                                                                     #
 #                                                                                              #
 ################################################################################################
+
+class KMLColorStyle(KMLObject):
+    """
+    This is an abstract element and cannot be used directly in a KML file. It provides
+    elements for specifying the color and color mode of extended style types.
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  : LineStyle, IconStyle, PolyStyle, LabelStyle
+    #
+    # Contains     : Color
+    #
+    # Contained by :
+    #
+
+    # Introduces color and colorMode properties
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__color = None
+        self.__colorMode = None
+        self.set(**kwargs)
+        logging.debug('KMLColorStyle created')
+
+    @property
+    def color(self):
+        """
+        Color and opacity (alpha) values are expressed in hexadecimal notation. The
+        range of values for any one color is 0 to 255 (00 to ff). For alpha, 00 is fully
+        transparent and ff is fully opaque. The order of expression is aabbggrr, where
+        aa=alpha (00 to ff); bb=blue (00 to ff); gg=green (00 to ff); rr=red (00 to ff).
+        For example, if you want to apply a blue color with 50 percent opacity to an
+        overlay, you would specify the following: <color>7fff0000</color>, where
+        alpha=0x7f, blue=0xff, green=0x00, and red=0x00.
+        """
+        return self.__color
+
+    @color.setter
+    def color(self, value):
+        if value is not None:
+            if type(value) is not  Color:
+                raise TypeError('color must be a Color object, not {}'.format(type(value)))
+        self.__color = value
+
+    @property
+    def colorMode(self):
+        """
+        Values for <colorMode> are normal (no effect) and random. A value of random applies
+        a random linear scale to the base <color> as follows.
+
+            To achieve a truly random selection of colors, specify a base <color> of white
+            (ffffffff).
+            
+            If you specify a single color component (for example, a value of ff0000ff for
+            red), random color values for that one component (red) will be selected. In
+            this case, the values would range from 00 (black) to ff (full red).
+            
+            If you specify values for two or for all three color components, a random
+            linear scale is applied to each color component, with results ranging from
+            black to the maximum values specified for each component.
+            
+            The opacity of a color comes from the alpha component of <color> and is never
+            randomized.
+        """
+        return self.__colorMode
+
+    @colorMode.setter
+    def colorMode(self, value):
+        if value is not None:
+            if value not in ['normal', 'random']:
+                raise ValueError('colorMode must be normal or random, not {}'.format(value))
+        self.__colorMode = value
+
+    def __str__(self):
+        tmp = ''
+        if self.__color is not None:
+            tmp += self.indent + ' <color>{}</color>\n'.format(str(self.__color))
+        if self.__colorMode is not None:
+            tmp += self.indent + ' <colorMode>{}</colorMode>\n'.format(self.__colorMode)
+        return tmp
+
+class KMLDateTime(object):
+
+    #
+    # Extends      :
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained By : TimeSpan, TimeStamp
+    #
+
+    def __init__(self, value=datetime.now(), format='Z'):
+        self.__value = None
+        self.format = format
+        self.value = value
+        self.__precision = 4
+        logging.debug('KMLDateTime created')
+
+    @property
+    def value(self):
+        """
+        Returns the portion of Date/Time as specified in self.format.
+        
+        When setting a value: 
+            if only the year is given, the date will default to Jan 01.
+            if only the year and month is given, the date will default to the 1st.
+        """
+        if type(value) is not str:
+            raise TypeError('value must be of type str, not {}'.format(type(value)))
+        if self.__format is None:
+            if len(value) == 4:                                     # Assume just the year is given
+                self.format = 'gYear'
+            if 6 <= len(value) <= 7:                                # Assume year and month in either '2004-06' or '200406'
+                self.format = 'gMonthYear'
+            if 8 <= len(value) <= 10:                               # Assume single date in either '2004-06-12' or '20040612'
+                self.format = 'date'
+            if len(value) > 10 and 'Z' in value:                    # Assume full date time
+                self.format = 'dateTime'
+            if len(value) > 10 and ('+' in value or '-' in value):  # Assume UTC time
+                self.format = 'UTC'
+            if self.format is None:
+                raise ValueError('format not set and unable to determine format from {}'.format(value)) 
+        if self.__format in ['Y', 'gYear']:
+            return '{:04}'.format(self.__value.year)
+        if self.__format in ['YM', 'gYearMonth']:
+            return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
+        if self.__format in ['YMD', 'date']:
+            return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
+        if self.__format in ['Z', 'dateTime']:  
+            return self.__value.isoformat().split('.')[0] + 'Z'
+        if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
+            d = datetime.now() - datetime.utcnow()
+            t = d.seconds + round(d.microseconds / 1000000)
+            return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
+
+    @value.setter
+    def value(self, value):
+        if value is not None:
+            if type(value) is str:
+                # Convert strings to date based in value of format
+                if self.__format is None:
+                    raise ValueError('Must specify a format when converting from str to KMLDateTime')
+                elif self.__format in ['Y', 'gYear']:
+                    # Check the Year to make sure it is are valid numbers.  If so, reasemble and convert
+                    if number.isInt(value.split('-')[0]):
+                        # NOTE: XML Schema 2.0 allows for 5 digit years.  Although this code will manipulate a 5 digit year,
+                        #       strptime does not support it so we are stuck with a 4 digit year for now.
+                        value = datetime.strptime('{:04}'.format(int(value.split('-')[0])) + '0101', '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year {}'.format(value[:4]))
+                elif self.__format in ['YM', 'gYearMonth']:
+                    # Check the Year and Month part to make sure they are valid numbers.  If so, reasemble and convert. Default to 1st of the month
+                    dateparts = value[:7].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + '01', '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year-month {}'.format(value[:7]))
+                elif self.__format in ['YMD', 'date']:
+                    # Check each Year, Day and Month part to make sure they are valid numbers.  If so, reasemble and convert
+                    dateparts = value[:10].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]) and number.isInt(dateparts[2]):
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + dateparts[2], '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year-month-day {}'.format(value[:10]))
+                elif self.__format in ['Z', 'dateTime']:
+                    # Provide strptime the formatting and convert. Straight forward
+                    try:
+                        value = datetime.strptime(value, '%Y-%m-%dThh:mm:ssZ')
+                    except:
+                        raise  # Raise what ever error gets thrown if it doesnt work
+                elif self.__format in ['UTC']:
+                    # Strip the ':' out of the timezone part and use strptime to convert the string to a datetime
+                    try:
+                        value = datetime.strptime(value[:len(value) - 6] + value[len(value) - 6:].replace(':', ''), '%Y-%m-%dT%H:%M:%S%z')
+                    except:
+                        raise  # Raise what ever error gets thrown if it doesnt work
+            if type(value) is not datetime:
+                raise TypeError('Value must be of type datetime, not {}'.format(type(value)))
+        self.__value = value
+
+    @property
+    def format(self):
+        return self.__format
+
+    @format.setter
+    def format(self, value):
+        if value not in ['Y', 'gYear',        # Year only
+                         'YM', 'gYearMonth',  # Year and Month
+                         'YMD', 'date',       # Year, Month and Day
+                         'Z', 'dateTime',     # Full Date/Time UTC
+                         'UTC']:              # Full Date/Time with UTC conversion
+            raise ValueError('Format pattern does not match')
+        self.__format = value
 
 class Snippet(KMLObject):
     """
@@ -1624,121 +1913,6 @@ class LookAt(KMLView):
         tmp += '</LookAt>\n'
         return tmp
 
-class KMLDateTime(object):
-
-    #
-    # Extends      :
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : TimeSpan, TimeStamp
-    #
-
-    def __init__(self, value=datetime.now(), format='Z'):
-        self.__value = None
-        self.format = format
-        self.value = value
-        self.__precision = 4
-        logging.debug('KMLDateTime created')
-
-    @property
-    def value(self):
-        """
-        Returns the portion of Date/Time as specified in self.format.
-        
-        When setting a value: 
-            if only the year is given, the date will default to Jan 01.
-            if only the year and month is given, the date will default to the 1st.
-        """
-        if type(value) is not str:
-            raise TypeError('value must be of type str, not {}'.format(type(value)))
-        if self.__format is None:
-            if len(value) == 4:                                     # Assume just the year is given
-                self.format = 'gYear'
-            if 6 <= len(value) <= 7:                                # Assume year and month in either '2004-06' or '200406'
-                self.format = 'gMonthYear'
-            if 8 <= len(value) <= 10:                               # Assume single date in either '2004-06-12' or '20040612'
-                self.format = 'date'
-            if len(value) > 10 and 'Z' in value:                    # Assume full date time
-                self.format = 'dateTime'
-            if len(value) > 10 and ('+' in value or '-' in value):  # Assume UTC time
-                self.format = 'UTC'
-            if self.format is None:
-                raise ValueError('format not set and unable to determine format from {}'.format(value)) 
-        if self.__format in ['Y', 'gYear']:
-            return '{:04}'.format(self.__value.year)
-        if self.__format in ['YM', 'gYearMonth']:
-            return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
-        if self.__format in ['YMD', 'date']:
-            return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
-        if self.__format in ['Z', 'dateTime']:  
-            return self.__value.isoformat().split('.')[0] + 'Z'
-        if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
-            d = datetime.now() - datetime.utcnow()
-            t = d.seconds + round(d.microseconds / 1000000)
-            return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
-
-    @value.setter
-    def value(self, value):
-        if value is not None:
-            if type(value) is str:
-                # Convert strings to date based in value of format
-                if self.__format is None:
-                    raise ValueError('Must specify a format when converting from str to KMLDateTime')
-                elif self.__format in ['Y', 'gYear']:
-                    # Check the Year to make sure it is are valid numbers.  If so, reasemble and convert
-                    if number.isInt(value.split('-')[0]):
-                        # NOTE: XML Schema 2.0 allows for 5 digit years.  Although this code will manipulate a 5 digit year,
-                        #       strptime does not support it so we are stuck with a 4 digit year for now.
-                        value = datetime.strptime('{:04}'.format(int(value.split('-')[0])) + '0101', '%Y%m%d')
-                    else:
-                        raise ValueError('Invalid year {}'.format(value[:4]))
-                elif self.__format in ['YM', 'gYearMonth']:
-                    # Check the Year and Month part to make sure they are valid numbers.  If so, reasemble and convert. Default to 1st of the month
-                    dateparts = value[:7].split('-')
-                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
-                        value = datetime.strptime(dateparts[0] + dateparts[1] + '01', '%Y%m%d')
-                    else:
-                        raise ValueError('Invalid year-month {}'.format(value[:7]))
-                elif self.__format in ['YMD', 'date']:
-                    # Check each Year, Day and Month part to make sure they are valid numbers.  If so, reasemble and convert
-                    dateparts = value[:10].split('-')
-                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]) and number.isInt(dateparts[2]):
-                        value = datetime.strptime(dateparts[0] + dateparts[1] + dateparts[2], '%Y%m%d')
-                    else:
-                        raise ValueError('Invalid year-month-day {}'.format(value[:10]))
-                elif self.__format in ['Z', 'dateTime']:
-                    # Provide strptime the formatting and convert. Straight forward
-                    try:
-                        value = datetime.strptime(value, '%Y-%m-%dThh:mm:ssZ')
-                    except:
-                        raise  # Raise what ever error gets thrown if it doesnt work
-                elif self.__format in ['UTC']:
-                    # Strip the ':' out of the timezone part and use strptime to convert the string to a datetime
-                    try:
-                        value = datetime.strptime(value[:len(value) - 6] + value[len(value) - 6:].replace(':', ''), '%Y-%m-%dT%H:%M:%S%z')
-                    except:
-                        raise  # Raise what ever error gets thrown if it doesnt work
-            if type(value) is not datetime:
-                raise TypeError('Value must be of type datetime, not {}'.format(type(value)))
-        self.__value = value
-
-    @property
-    def format(self):
-        return self.__format
-
-    @format.setter
-    def format(self, value):
-        if value not in ['Y', 'gYear',        # Year only
-                         'YM', 'gYearMonth',  # Year and Month
-                         'YMD', 'date',       # Year, Month and Day
-                         'Z', 'dateTime',     # Full Date/Time UTC
-                         'UTC']:              # Full Date/Time with UTC conversion
-            raise ValueError('Format pattern does not match')
-        self.__format = value
-
 class TimeSpan(KMLObject):
     """
     Represents an extent in time bounded by begin and end dateTimes.
@@ -1973,88 +2147,6 @@ class Color(object):
 
     def __str__(self):
         return str(self.__alpha) + str(self.__blue) + str(self.__green) + str(self.__red)
-
-class KMLColorStyle(KMLObject):
-    """
-    This is an abstract element and cannot be used directly in a KML file. It provides
-    elements for specifying the color and color mode of extended style types.
-    """
-    #
-    # Extends      : KMLObject
-    #
-    # Extended by  : LineStyle, IconStyle, PolyStyle, LabelStyle
-    #
-    # Contains     : Color
-    #
-    # Contained by :
-    #
-
-    # Introduces color and colorMode properties
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.__color = None
-        self.__colorMode = None
-        self.set(**kwargs)
-        logging.debug('KMLColorStyle created')
-
-    @property
-    def color(self):
-        """
-        Color and opacity (alpha) values are expressed in hexadecimal notation. The
-        range of values for any one color is 0 to 255 (00 to ff). For alpha, 00 is fully
-        transparent and ff is fully opaque. The order of expression is aabbggrr, where
-        aa=alpha (00 to ff); bb=blue (00 to ff); gg=green (00 to ff); rr=red (00 to ff).
-        For example, if you want to apply a blue color with 50 percent opacity to an
-        overlay, you would specify the following: <color>7fff0000</color>, where
-        alpha=0x7f, blue=0xff, green=0x00, and red=0x00.
-        """
-        return self.__color
-
-    @color.setter
-    def color(self, value):
-        if value is not None:
-            if type(value) is not  Color:
-                raise TypeError('color must be a Color object, not {}'.format(type(value)))
-        self.__color = value
-
-    @property
-    def colorMode(self):
-        """
-        Values for <colorMode> are normal (no effect) and random. A value of random applies
-        a random linear scale to the base <color> as follows.
-
-            To achieve a truly random selection of colors, specify a base <color> of white
-            (ffffffff).
-            
-            If you specify a single color component (for example, a value of ff0000ff for
-            red), random color values for that one component (red) will be selected. In
-            this case, the values would range from 00 (black) to ff (full red).
-            
-            If you specify values for two or for all three color components, a random
-            linear scale is applied to each color component, with results ranging from
-            black to the maximum values specified for each component.
-            
-            The opacity of a color comes from the alpha component of <color> and is never
-            randomized.
-        """
-        return self.__colorMode
-
-    @colorMode.setter
-    def colorMode(self, value):
-        if value is not None:
-            if value not in ['normal', 'random']:
-                raise ValueError('colorMode must be normal or random, not {}'.format(value))
-        self.__colorMode = value
-
-    def __str__(self):
-        tmp = ''
-        if self.__color is not None:
-            tmp += self.indent + ' <color>{}</color>\n'.format(str(self.__color))
-        if self.__colorMode is not None:
-            tmp += self.indent + ' <colorMode>{}</colorMode>\n'.format(self.__colorMode)
-        return tmp
-
 
 class LineStyle(KMLColorStyle):
     """
@@ -2827,3 +2919,243 @@ class StyleMap(KMLObject):
         tmp += self.indent + '</StyleMap>\n'
         return tmp
     
+class Folder(KMLContainer):
+    """
+    A Folder is used to arrange other Features hierarchically (Folders, Placemarks,
+    NetworkLinks, or Overlays). A Feature is visible only if it and all its ancestors
+    are visible.
+    
+    According to KML 2.2 Documentation, folders only contain Feature elements
+    """
+
+    #
+    # Extends      : KMLContainer
+    #
+    # Extended by  : 
+    #
+    # Contains     : KMLFeature (any derived classes)
+    #
+    # Contained By : KMLContainer
+    # 
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    def append(self, item):
+        # Overload the append method to check class inheritance.
+        # If of the correct derived class, call the super's append.
+        if KMLFeature in getmro(item.__class__):
+            super().append(item)
+        else:
+            raise TypeError('item must be derived from type KMLFeature, not {}'.format(type(item)))
+        
+class Document(KMLContainer):
+    """
+    A Document is a container for features and styles. This element is required if your
+    KML file uses shared styles. It is recommended that you use shared styles, which
+    require the following steps:
+    
+        Define all Styles in a Document. Assign a unique ID to each Style.
+        Within a given Feature or StyleMap, reference the Style's ID using a
+            <styleUrl> element.
+    
+    Note that shared styles are not inherited by the Features in the Document.
+    
+    Each Feature must explicitly reference the styles it uses in a <styleUrl> element.
+    For a Style that applies to a Document (such as ListStyle), the Document itself
+    must explicitly reference the <styleUrl>. For example:
+
+        <Document>
+          <Style id="myPrettyDocument">
+           <ListStyle> ... </ListStyle>
+        
+          </Style>
+          <styleUrl#myPrettyDocument">
+          ...
+        </Document>
+    
+    Do not put shared styles within a Folder.
+    
+    The following example illustrates use of a shared style.
+    
+        <?xml version="1.0" encoding="UTF-8"?>
+        <kml xmlns="http://www.opengis.net/kml/2.2">
+        <Document>
+          <name>Document.kml</name>
+          <open>1</open>
+          <Style id="exampleStyleDocument">
+            <LabelStyle>
+              <color>ff0000cc</color>
+            </LabelStyle>
+          </Style>
+          <Placemark>
+            <name>Document Feature 1</name>
+            <styleUrl>#exampleStyleDocument</styleUrl>
+            <Point>
+              <coordinates>-122.371,37.816,0</coordinates>
+            </Point>
+          </Placemark>
+          <Placemark>
+            <name>Document Feature 2</name>
+            <styleUrl>#exampleStyleDocument</styleUrl>
+            <Point>
+              <coordinates>-122.370,37.817,0</coordinates>
+            </Point>
+          </Placemark>
+        </Document>
+        </kml>
+    """
+    #
+    # Extends      : KMLContainer
+    #
+    # Extended by  :
+    #
+    # Contains     : KMLFeature (any derived classes), Style
+    #
+    # Contained By : 
+    # 
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    def append(self, item):
+        # Overload the append method to check class inheritance.
+        # If of the correct derived class, call the super's append.
+        if KMLFeature in getmro(item.__class__):
+            super().append(item)
+        elif Style in getmro(item.__class__):
+            super().append(item)
+        else:
+            raise TypeError('item must be of type Style or derived from type KMLFeature, not {}'.format(type(item)))
+
+class LatLonBox(KMLObject):
+    """
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  : 
+    #
+    # Contains     : angle90, angle180
+    #
+    # Contained By :
+    # 
+
+    def __init__(self, **kwargs):
+
+        self.__north = None
+        self.__south = None
+        self.__east = None
+        self.__west = None
+        self.__rotation = None
+        super().__init__(**kwargs)
+
+    @property
+    def north(self):
+        """
+        Specifies the latitude of the north edge of the bounding box, in decimal degrees from 0 to ±90.
+        """
+        return self.__north
+    
+    @north.setter
+    def north(self, value):
+        self.__north = angle90(value)
+        
+    @property
+    def south(self):
+        """
+        Specifies the latitude of the south edge of the bounding box, in decimal degrees from 0 to ±90.
+        """
+        return self.__south
+    
+    @south.setter
+    def south(self, value):
+        self.__south = angle90(value)
+        
+    @property
+    def east(self):
+        """
+        Specifies the longitude of the east edge of the bounding box, in decimal degrees from 0 to ±180.
+        (For overlays that overlap the meridian of 180° longitude, values can extend beyond that range.)
+        """
+        return self.__east
+    
+    @east.setter
+    def east(self, value):
+        self.__east = angle180(value)
+        
+    @property
+    def west(self):
+        """
+        Specifies the longitude of the west edge of the bounding box, in decimal degrees from 0 to ±180.
+        (For overlays that overlap the meridian of 180° longitude, values can extend beyond that range.)
+        """
+        return self.__west
+    
+    @west.setter
+    def west(self, value):
+        self.__west = angle180(value)
+        
+    @property
+    def rotation(self):
+        """
+        Specifies a rotation of the overlay about its center, in degrees. Values can be ±180. The
+        default is 0 (north). Rotations are specified in a counterclockwise direction.
+        """
+        return self.__rotation
+    
+    @rotation.setter
+    def rotation(self, value):
+        self.__rotation = angle180(value)
+        
+
+    def __contains__(self, p):
+        inside_lon = False
+        if self.north > self.south:
+            if p.lon <= self.north and p.lon >= self.south:
+                inside_lon = True
+        else:
+            if p.lon >= self.north and p.lon <= self.south:
+                inside_lon = True
+        inside_lat = False
+        if self.east > self.west:
+            if p.lat <= self.east and p.lat >= self.west:
+                inside_lat = True
+        else:
+            if p.lat >= self.east and p.lat <= self.west:
+                inside_lat = True
+        return (inside_lon and inside_lat)
+
+    def __str__(self):
+        tmp = self.indent + '<LatLonBox>\n'
+        tmp += self.indent + ' <north>{}</north>\n'.format(self.__north)
+        tmp += self.indent + ' <south>{}</south>\n'.format(self.__south)
+        tmp += self.indent + ' <east>{}</east>\n'.format(self.__east)
+        tmp += self.indent + ' <west>{}</west>\n'.format(self.__west)
+        tmp += self.indent + ' <rotation>{}</rotation>\n'.format(self.__rotation)
+        tmp += self.indent + '</LatLonBox>\n'
+
+class GroundOverlay(KMLOverlay):
+    """
+    This element draws an image overlay draped onto the terrain. The <href> child
+    of <Icon> specifies the image to be used as the overlay. This file can be either
+    on a local file system or on a web server. If this element is omitted or
+    contains no <href>, a rectangle is drawn using the color and LatLonBox bounds
+    defined by the ground overlay.
+    """
+    #
+    # Extends      : KMLOverlay
+    #
+    # Extended by  : 
+    #
+    # Contains     : LatNonBox
+    #
+    # Contained By : Container
+    # 
+
+
+
+
+
+
+
