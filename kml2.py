@@ -1106,41 +1106,6 @@ class KMLView(KMLObject):
         """
         return self.__time
     
-    @property
-    def altitudeMode(self):
-        """
-        Specifies how the <altitude> specified for the LookAt point is interpreted.
-        Possible values are as follows:
-        
-            clampToGround       (default) Indicates to ignore the <altitude>
-                                specification and place the LookAt position on the ground.
-            relativeToGround    Interprets the <altitude> as a value in meters above the
-                                ground.
-            absolute            Interprets the <altitude> as a value in meters above sea
-                                level.
-
-        A KML extension in the Google extension namespace, allowing altitudes relative to
-        the sea floor. Values are:
-        
-            relativeToSeaFloor  Interprets the <altitude> as a value in meters above the
-                                sea floor. If the point is above land rather than sea, the
-                                <altitude> will be interpreted as being above the ground.
-            clampToSeaFloor     The <altitude> specification is ignored, and the LookAt
-                                will be positioned on the sea floor. If the point is on
-                                land rather than at sea, the LookAt will be positioned on
-                                the ground.
-        """
-        return self.__altitudeMode
-    
-    @altitudeMode.setter
-    def altitudeMode(self, value):
-        if value is not None:
-            if type(value) is not str:
-                raise TypeError('altitudeMode must be of type str, not {}'.format(type(value)))
-            if value not in ['clampToGround', 'relativeToGround', 'absolute', 'clampToSeaFloor', 'relativeToSeaFloor']:
-                raise valueError('altitudeMode must be clampToGround, relativeToGround, absolute, clampToSeaFloor or  relativeToSeaFloor, not {}'.format(value))
-        self.__altitudeMode = value
-        
     @time.setter
     def time(self, value):
         if value is not None:
@@ -1149,6 +1114,18 @@ class KMLView(KMLObject):
             value.parent = self
         self.__time = value
         logging.debug('KLMView created')
+    
+    @property
+    def altitudeMode(self):
+        return self.__altitudeMode
+    
+    @altitudeMode.setter
+    def altitudeMode(self, value):
+        if value is not None:
+            if type(value) is not KMLAltitudeMode:
+                raise TypeError('altitudeMode must be of type AltitudeMode')
+            value.parent = self
+        self.__altitudeMode = value
 
     def __str__(self):
         tmp = ''
@@ -1156,11 +1133,7 @@ class KMLView(KMLObject):
             tmp += str(self.__viewer)
         if self.__time is not None:
             tmp += str(self.__time)
-        if self.__altitudeMode is not None:
-            if self.__altitudeMode in ['clampToGround', 'relativeToGround', 'absolute']:
-                tmp += self.indent + ' <altitudeMode>{}</altitudeMode>'.format(self.__altitudeMode)
-            elif self.__altitudeMode in ['clampToSeaFloor', 'relativeToSeaFloor']:
-                tmp += self.indent + ' <gx:altitudeMode>{}</gx:altitudeMode>'.format(self.__altitudeMode)
+        tmp += str(self.__altitudeMode)
         return tmp
 
 class KMLVec(KMLObject):
@@ -1258,12 +1231,6 @@ class KMLVec(KMLObject):
             tmp += ' yunits="{}"'.format(self.yUnits)
         tmp += '</hotSpot>\n'
         return tmp
-
-################################################################################################
-#                                                                                              #
-#   KML Object definitions                                                                     #
-#                                                                                              #
-################################################################################################
 
 class KMLColorStyle(KMLObject):
     """
@@ -1461,6 +1428,75 @@ class KMLDateTime(object):
             raise ValueError('Format pattern does not match')
         self.__format = value
 
+
+################################################################################################
+#                                                                                              #
+#   KML Object definitions                                                                     #
+#                                                                                              #
+################################################################################################
+
+class AltitudeMode(KMLObject):
+    """
+    Handles AltitudeMode attributes
+    """
+    #
+    # Extends      : KMLObject
+    #
+    # Extended by  :
+    #
+    # Contains     : 
+    #
+    # Contained by : GroundOverlay
+    #
+    def __init__(self, **kwargs):
+       self.__altitudeMode = None
+       super().__init(**kwargs)
+       self.set(**kwargs)
+       
+    @property
+    def altitudeMode(self):
+        """
+            clampToGround - (default)
+                Indicates to ignore the altitude specification and drape the overlay over
+                the terrain.
+            relativeToGround
+                Interprets the <altitude> as a value in meters above the ground.
+            absolute
+                Sets the altitude of the overlay relative to sea level, regardless
+                of the actual elevation of the terrain beneath the element. For example, if
+                you set the altitude of an overlay to 10 meters with an absolute altitude
+                mode, the overlay will appear to be at ground level if the terrain beneath
+                is also 10 meters above sea level. If the terrain is 3 meters above sea
+                level, the overlay will appear elevated above the terrain by 7 meters.
+            relativeToSeaFloor
+                Interprets the <altitude> as a value in meters above the sea floor. If the
+                point is above land rather than sea, the <altitude> will be interpreted as
+                being above the ground.
+            clampToSeaFloor
+                The <altitude> specification is ignored, and the overlay will be draped over
+                the sea floor. If the point is on land rather than at sea, the overlay will
+                be positioned on the ground.
+        """
+        return self.__altitudeMode
+    
+    @altitudeMode.setter
+    def altitudeMode(self, value):
+        if value is not None:
+            if type(value) is not str:
+                raise TypeError('altitudeMode must be of type str, not {}'.format(type(value)))
+            if value not in ['clampToGround', 'relativeToGround', 'absolute', 'clampToSeaFloor', 'relativeToSeaFloor']:
+                raise valueError('altitudeMode must be clampToGround, relativeToGround, absolute, clampToSeaFloor or  relativeToSeaFloor, not {}'.format(value))
+        self.__altitudeMode = value
+    
+    def __str__(self):
+        tmp = ''
+        if self.__altitudeMode is not None:
+            if self.__altitudeMode in ['clampToGround', 'relativeToGround', 'absolute']:
+                tmp += self.indent + ' <altitudeMode>{}</altitudeMode>'.format(self.__altitudeMode)
+            elif self.__altitudeMode in ['clampToSeaFloor', 'relativeToSeaFloor']:
+                tmp += self.indent + ' <gx:altitudeMode>{}</gx:altitudeMode>'.format(self.__altitudeMode)
+        return tmp
+ 
 class Snippet(KMLObject):
     """
     A short description of the feature. In Google Earth, this description is
@@ -3030,6 +3066,21 @@ class Document(KMLContainer):
 
 class LatLonBox(KMLObject):
     """
+    Specifies where the top, bottom, right, and left sides of a bounding box for the
+    ground overlay are aligned.
+        <north> Specifies the latitude of the north edge of the bounding box, in
+            decimal degrees from 0 to ±90.
+        <south> Specifies the latitude of the south edge of the bounding box, in
+            decimal degrees from 0 to ±90.
+        <east> Specifies the longitude of the east edge of the bounding box, in
+            decimal degrees from 0 to ±180. (For overlays that overlap the meridian
+            of 180° longitude, values can extend beyond that range.)
+        <west> Specifies the longitude of the west edge of the bounding box, in
+            decimal degrees from 0 to ±180. (For overlays that overlap the meridian
+            of 180° longitude, values can extend beyond that range.)
+        <rotation> Specifies a rotation of the overlay about its center, in degrees.
+            Values can be ±180. The default is 0 (north). Rotations are specified in
+            a counterclockwise direction.
     """
     #
     # Extends      : KMLObject
@@ -3110,6 +3161,8 @@ class LatLonBox(KMLObject):
         
 
     def __contains__(self, p):
+        if type(p) is not Coords:
+            raise TypeError('Can only find Coords in LatLonVox, not {}'.format(type(p)))
         inside_lon = False
         if self.north > self.south:
             if p.lon <= self.north and p.lon >= self.south:
@@ -3127,6 +3180,10 @@ class LatLonBox(KMLObject):
         return (inside_lon and inside_lat)
 
     def __str__(self):
+        if self.__north is None or \
+           self.__south is None or \
+           self.__east is None or\
+           self.__west is None
         tmp = self.indent + '<LatLonBox>\n'
         tmp += self.indent + ' <north>{}</north>\n'.format(self.__north)
         tmp += self.indent + ' <south>{}</south>\n'.format(self.__south)
@@ -3148,13 +3205,85 @@ class GroundOverlay(KMLOverlay):
     #
     # Extended by  : 
     #
-    # Contains     : LatNonBox
+    # Contains     : AltitudeMode, LatLonBox, number
     #
     # Contained By : Container
     # 
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__altitudeMode = None
+        self.__altitude = None
+        self.__boundaries = None
+        self.set(**kwargs)
+    
+    @property
+    def altitudeMode(self):
+        """
+        Specifies how the <altitude>is interpreted. Possible values are
+        
+            clampToGround - (default)
+                Indicates to ignore the altitude specification and drape the overlay over
+                the terrain.
+            relativeToGround
+                Interprets the <altitude> as a value in meters above the ground.
+            absolute
+                Sets the altitude of the overlay relative to sea level, regardless
+                of the actual elevation of the terrain beneath the element. For example, if
+                you set the altitude of an overlay to 10 meters with an absolute altitude
+                mode, the overlay will appear to be at ground level if the terrain beneath
+                is also 10 meters above sea level. If the terrain is 3 meters above sea
+                level, the overlay will appear elevated above the terrain by 7 meters.
+            relativeToSeaFloor
+                Interprets the <altitude> as a value in meters above the sea floor. If the
+                point is above land rather than sea, the <altitude> will be interpreted as
+                being above the ground.
+            clampToSeaFloor
+                The <altitude> specification is ignored, and the overlay will be draped over
+                the sea floor. If the point is on land rather than at sea, the overlay will
+                be positioned on the ground.
+        """    
+        return self.__altitudeMode
+    
+    @altitudeMode.setter
+    def altitudeMode(self, value):
+        if value is not None:
+            if type(value) is not AltitudeMode:
+                raise TypeError('altitudeMode must be of type AltitudeMode, not {}'.format(type(value)))
+            value.parent = self
+        self.__altitudeMode = value
 
+    @property
+    def altitude(self):
+        """
+        Specifies the distance above the earth's surface, in meters, and is
+        interpreted according to the altitude mode.
+        """
+        return self.__altitude
+    
+    @altitude.setter
+    def altitude(self, value):
+        if value is not None:
+            self.__altitude = number(value)
+        else:
+            self.__altitude = None
+    
+    @property
+    def boundaries(self):
+        """
+        Accepts either a LatLonBox object or a gx_LatLonQuad object
 
+        <LatLonBox>
+        Specifies where the top, bottom, right, and left sides of a bounding box for the
+        ground overlay are aligned.
+            <north> Specifies the latitude of the north edge of the bounding box, in decimal degrees from 0 to ±90.
+            <south> Specifies the latitude of the south edge of the bounding box, in decimal degrees from 0 to ±90.
+            <east> Specifies the longitude of the east edge of the bounding box, in decimal degrees from 0 to ±180. (For overlays that overlap the meridian of 180° longitude, values can extend beyond that range.)
+            <west> Specifies the longitude of the west edge of the bounding box, in decimal degrees from 0 to ±180. (For overlays that overlap the meridian of 180° longitude, values can extend beyond that range.)
+            <rotation> Specifies a rotation of the overlay about its center, in degrees. Values can be ±180. The default is 0 (north). Rotations are specified in a counterclockwise direction.
+
+        <gx:LatLonQuad>
+            Used for nonrectangular quadrilateral ground overlays.
 
 
 
