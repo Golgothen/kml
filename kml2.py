@@ -10,6 +10,7 @@ logger.setLevel(logging.DEBUG)
 
 from datetime import datetime
 from inspect import getmro
+from enum import Enum
 
 ################################################################################################
 #                                                                                              #
@@ -184,50 +185,81 @@ class angle360(number):
         if not (0.0 <= value < 360.0):
             raise ValueError('Value out of range')
 
-class boolean(int):
-    """
-    Subclass of int class.  Used to represent a boolean.  Holds a value of 1 for true, 0 for false.
-    NOTE: ALL non-false values are considered True
-    
-    Can be created in several ways:
-    
-        x = boolean('1')   (returns 1 - True)
-        x = boolean(1)     (returns 1 - True)
-        x = boolean('0')   (returns 0 - True)
-        x = boolean(0)     (returns 0 - True)
-        x = boolean(False) (returns 0 - True)
-        x = boolean('No')  (returns 0 - True)
-        x = boolean('Off') (returns 0 - True)
-    """
+################################################################################################
+#                                                                                              #
+#   KML Enum definitions                                                                       #
+#                                                                                              #
+################################################################################################
 
-    #
-    # Extends      : int
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : gx_ViewerOptions, LineStyle
-    # 
-
-    # ANY value that is not 0 or boolean False is considered True
-    def __new__(self, value):
-        if str(value) == '0' or str(value) == 'False' or str(value.lower()) == 'no' or str(value.lower()) == 'off':
-            return int.__new__(self, 0)
+class altitudeModeEnum(Enum):
+    """
+        clampToGround - (default)
+            Indicates to ignore the altitude specification and drape the overlay over
+            the terrain.
+        relativeToGround
+            Interprets the <altitude> as a value in meters above the ground.
+        absolute
+            Sets the altitude of the overlay relative to sea level, regardless
+            of the actual elevation of the terrain beneath the element. For example, if
+            you set the altitude of an overlay to 10 meters with an absolute altitude
+            mode, the overlay will appear to be at ground level if the terrain beneath
+            is also 10 meters above sea level. If the terrain is 3 meters above sea
+            level, the overlay will appear elevated above the terrain by 7 meters.
+        relativeToSeaFloor
+            Interprets the <altitude> as a value in meters above the sea floor. If the
+            point is above land rather than sea, the <altitude> will be interpreted as
+            being above the ground.
+        clampToSeaFloor
+            The <altitude> specification is ignored, and the overlay will be draped over
+            the sea floor. If the point is on land rather than at sea, the overlay will
+            be positioned on the ground.
+    """
+    clampToGround = 0
+    relativeToGround = 1
+    absolute = 2
+    relativeToSeaFloor = 3
+    clampToSeaFloor = 4
+    
+    def __str__(self):
+        if self.value < 3:
+            return ' <altitudeMode>{}</altitudeMode>\n'.format(self.name)
         else:
-            return int.__new__(self, 1)
+            return ' <gx:altitudeMode>{}</gx:altitudeMode>\n'.format(self.name)
 
-    def __bool__(self):
-        if self == 0:
-            return False
-        return True
+class booleanEnum(Enum):
+    """
+    Specifies if the object is visible when loaded
+    """
+    no = 0
+    off = 0
+    false = 0
+    yes = 1
+    on = 1
+    true = 1
 
+    def __str__(self):
+        return str(self.value)
+
+class colorModeEnum(Enum):
+    normal = 0
+    random = 1
+    
+    def __str__(self):
+        return ' <colorMode>{}</colorMode>\n'.format(self.name)
+
+class displayModeEnum(Enum):
+    default = 0
+    hide = 1
+    
+    def __str__(self):
+        return ' <displayMode>{}</displayMode>\n'.format(self.name)
 
 ################################################################################################
 #                                                                                              #
 #   KML Abstract Object definitions (base classes)                                             #
 #                                                                                              #
 ################################################################################################
+
 
 class KMLObject(object):
     """
@@ -283,7 +315,7 @@ class KMLObject(object):
     @parent.setter
     def parent(self, parent):
         self._set_parent(parent)
-
+        
     @property
     def id(self):
         """
@@ -314,7 +346,9 @@ class KMLObject(object):
             self.__parent = parent
             self.depth = parent.depth + 1
             if hasattr(parent, 'append'):
-                parent.append(self)
+                if not self in parent:
+                    logging.debug('KMLObject appending self to parent')
+                    parent.append(self)
             logging.debug('KMLObject parent property set')
         else:
             if self.__parent is not None:
@@ -413,10 +447,10 @@ class KMLContainer(KMLObject):
         # if type(item) is Document: TODO: Uncomment this later
         #    raise TypeError('Document objects cannot be child objects')
         if item is not None:
-            if item.parent is not self:  # Stop recursive calls
-                item.parent = self
             if item not in self.__elements:
                 self.__elements.append(item)
+                if item.parent is not self:  # Stop recursive calls
+                    item.parent = self
                 logging.debug('KMLContainer adding {} to collection'.format(item.__class__.__name__))
 
     def insert(self, position, item):
@@ -703,9 +737,9 @@ class KMLFeature(KMLObject):
     @visibility.setter
     def visibility(self, value):
         if value is not None:
-            if type(value) not in [str, int, float]:
-                raise ValueError('Invalid value for visibility {}'.format(repr(value)))
-        self.__visibility = boolean(value)
+            self.__visibility = booleanEnum[value]
+        else:
+            self.__visibility = None
 
     @property
     def open(self):
@@ -720,9 +754,9 @@ class KMLFeature(KMLObject):
     @open.setter
     def open(self, value):
         if value is not None:
-            if type(value) not in [str, int, float]:
-                raise ValueError('Invalid value for open {}'.format(repr(value)))
-        self.__open = boolean(value)
+            self.__open = booleanEnum[value]
+        else:
+            self.__open = None
 
     @property
     def author(self):
@@ -949,7 +983,7 @@ class KMLFeature(KMLObject):
         logging.debug('KMLFeature outputting child kml elements')
         tmp = ''
         # Output any value based attributes
-        for a in ['name', 'description', 'visibility', 'open', 'phoneNumber', 'address']:
+        for a in ['name', 'description', 'phoneNumber', 'address', 'open', 'visibility']:
             if getattr(self, a) is not None:
                 tmp += self.indent + ' <{}>{}</{}>\n'.format(a, getattr(self, a), a)
         # Output any special case attributes
@@ -962,7 +996,7 @@ class KMLFeature(KMLObject):
             tmp += self.indent + '  <atom:name>{}</atom:name>\n'.format(self.__author)
             tmp += self.indent + ' </atom:author>\n'
         # Output any object based attributes
-        for a in ['snippet', 'view', 'time', 'styleURL', 'styleSelector', 'region', 'metadata', 'extendedData']:
+        for a in ['visibility', 'open', 'snippet', 'view', 'time', 'styleURL', 'styleSelector', 'region', 'metadata', 'extendedData']:
             if getattr(self, a) is not None:
                 tmp += str(getattr(self, a))
         return tmp
@@ -1122,8 +1156,8 @@ class KMLView(KMLObject):
     @altitudeMode.setter
     def altitudeMode(self, value):
         if value is not None:
-            if type(value) is not KMLAltitudeMode:
-                raise TypeError('altitudeMode must be of type AltitudeMode')
+            if value is not None:
+                self.__altitudeMode = altitudeModeEnum(value)
             value.parent = self
         self.__altitudeMode = value
 
@@ -1242,7 +1276,7 @@ class KMLColorStyle(KMLObject):
     #
     # Extended by  : LineStyle, IconStyle, PolyStyle, LabelStyle
     #
-    # Contains     : Color
+    # Contains     : Color, colorModeEnum
     #
     # Contained by :
     #
@@ -1301,16 +1335,16 @@ class KMLColorStyle(KMLObject):
     @colorMode.setter
     def colorMode(self, value):
         if value is not None:
-            if value not in ['normal', 'random']:
-                raise ValueError('colorMode must be normal or random, not {}'.format(value))
-        self.__colorMode = value
+            self.__colorMode = colorModeEnum[value]
+        else:
+            self.__colorMode = value
 
     def __str__(self):
         tmp = ''
         if self.__color is not None:
             tmp += self.indent + ' <color>{}</color>\n'.format(str(self.__color))
         if self.__colorMode is not None:
-            tmp += self.indent + ' <colorMode>{}</colorMode>\n'.format(self.__colorMode)
+            tmp += self.indent + str(self.__colorMode)
         return tmp
 
 class KMLDateTime(object):
@@ -1435,68 +1469,6 @@ class KMLDateTime(object):
 #                                                                                              #
 ################################################################################################
 
-class AltitudeMode(KMLObject):
-    """
-    Handles AltitudeMode attributes
-    """
-    #
-    # Extends      : KMLObject
-    #
-    # Extended by  :
-    #
-    # Contains     : 
-    #
-    # Contained by : GroundOverlay
-    #
-    def __init__(self, **kwargs):
-       self.__altitudeMode = None
-       super().__init(**kwargs)
-       self.set(**kwargs)
-       
-    @property
-    def altitudeMode(self):
-        """
-            clampToGround - (default)
-                Indicates to ignore the altitude specification and drape the overlay over
-                the terrain.
-            relativeToGround
-                Interprets the <altitude> as a value in meters above the ground.
-            absolute
-                Sets the altitude of the overlay relative to sea level, regardless
-                of the actual elevation of the terrain beneath the element. For example, if
-                you set the altitude of an overlay to 10 meters with an absolute altitude
-                mode, the overlay will appear to be at ground level if the terrain beneath
-                is also 10 meters above sea level. If the terrain is 3 meters above sea
-                level, the overlay will appear elevated above the terrain by 7 meters.
-            relativeToSeaFloor
-                Interprets the <altitude> as a value in meters above the sea floor. If the
-                point is above land rather than sea, the <altitude> will be interpreted as
-                being above the ground.
-            clampToSeaFloor
-                The <altitude> specification is ignored, and the overlay will be draped over
-                the sea floor. If the point is on land rather than at sea, the overlay will
-                be positioned on the ground.
-        """
-        return self.__altitudeMode
-    
-    @altitudeMode.setter
-    def altitudeMode(self, value):
-        if value is not None:
-            if type(value) is not str:
-                raise TypeError('altitudeMode must be of type str, not {}'.format(type(value)))
-            if value not in ['clampToGround', 'relativeToGround', 'absolute', 'clampToSeaFloor', 'relativeToSeaFloor']:
-                raise valueError('altitudeMode must be clampToGround, relativeToGround, absolute, clampToSeaFloor or  relativeToSeaFloor, not {}'.format(value))
-        self.__altitudeMode = value
-    
-    def __str__(self):
-        tmp = ''
-        if self.__altitudeMode is not None:
-            if self.__altitudeMode in ['clampToGround', 'relativeToGround', 'absolute']:
-                tmp += self.indent + ' <altitudeMode>{}</altitudeMode>'.format(self.__altitudeMode)
-            elif self.__altitudeMode in ['clampToSeaFloor', 'relativeToSeaFloor']:
-                tmp += self.indent + ' <gx:altitudeMode>{}</gx:altitudeMode>'.format(self.__altitudeMode)
-        return tmp
- 
 class Snippet(KMLObject):
     """
     A short description of the feature. In Google Earth, this description is
@@ -1566,7 +1538,7 @@ class gx_ViewerOptions(KMLObject):
     #
     # Extended by  :
     #
-    # Contains     : boolean
+    # Contains     : booleanEnum
     #
     # Contained by : KMLView
     #
@@ -1574,7 +1546,7 @@ class gx_ViewerOptions(KMLObject):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__name = 'streetview'
-        self.__enabled = boolean(1)
+        self.__enabled = booleanEnum['yes']
         self.set(**kwargs)
         logging.debug('gx:ViewerOptions created')
 
@@ -1594,12 +1566,12 @@ class gx_ViewerOptions(KMLObject):
 
     @enabled.setter
     def enabled(self, value):
-        self.__enabled = boolean(value)
+        self.__enabled = booleanEnum[value]
 
 
     def __str__(self):
         tmp = self.indent + '<gx:ViewerOptions{}>\n'.format(self.id)
-        tmp += self.indent + ' <gx:option name="{}" enabled={}/>\n'.format(self.__name, self.__enabled)
+        tmp += self.indent + ' <gx:option name="{}" enabled={}/>\n'.str(self.__name, self.__enabled)
         tmp += self.indent + '</gx:ViewerOptions>\n'
         return tmp
 
@@ -2195,7 +2167,7 @@ class LineStyle(KMLColorStyle):
     #
     # Extended by  :
     #
-    # Contains     : Color, number, boolean, numberPercent
+    # Contains     : Color, number, booleanEnum, numberPercent
     #
     # Contained by : Style
     #
@@ -2288,7 +2260,7 @@ class LineStyle(KMLColorStyle):
     @labelVisibility.setter
     def labelVisibility(self, value):
         if value is not None:
-            self.__labelVisibility = boolean(value)
+            self.__labelVisibility = booleanEnum[value]
         else:
             self.__labelVisibility = None
 
@@ -2304,7 +2276,7 @@ class LineStyle(KMLColorStyle):
         if self.__physicalWidth is not None:
             tmp += self.indent + ' <gx:physicalWidth>{}</gx:physicalWidth>\n'.format(str(self.__physicalWidth))
         if self.__labelVisibility is not None:
-            tmp += self.indent + ' <gx:labelVisibility>{}</gx:labelVisibility>\n'.format(str(self.__labelVisibility))
+            tmp += self.indent + ' <gx:labelVisibility>{}</gx:labelVisibility>\n'.str(self.__labelVisibility)
         tmp += self.indent + '</LineStyle>\n'
         return tmp
 
@@ -2454,7 +2426,7 @@ class PolyStyle(KMLColorStyle):
     #
     # Extended by  :
     #
-    # Contains     : boolean
+    # Contains     : booleanEnum
     #
     # Contained by : Style
     #
@@ -2474,7 +2446,7 @@ class PolyStyle(KMLColorStyle):
     @fill.setter
     def fill(self, value):
         if value is not None:
-            self.__fill = boolean(value)
+            self.__fill = booleanEnum[value]
         else:
             self.__fill = None
    
@@ -2497,7 +2469,7 @@ class PolyStyle(KMLColorStyle):
         tmp = self.indent + '<PolyStyle{}>\n'.format(self.id)
         tmp += super().__str__()
         if self.__fill is not None:
-            tmp += self.indent + ' <fill>{}</fill>\n'.format(self.__fill)
+            tmp += self.indent + ' <fill>{}</fill>\n'.str(self.__fill)
         if self.__outline is not None:
             tmp += self.indent + ' <outline>{}</outline>\n'.format(self.__outline)
         tmp += self.indent + '</PolyStyle>\n'
@@ -2577,7 +2549,7 @@ class BalloonStyle(KMLObject):
     #
     # Extended by  :
     #
-    # Contains     : Color
+    # Contains     : Color, displayModeEnum
     #
     # Contained by : ListStyle
     #
@@ -2685,7 +2657,7 @@ class BalloonStyle(KMLObject):
         if self.__text is not None:
             tmp += self.indent + ' <text>{}</text>\n'.format(str(self.__text))
         if self.__displayMode is not None:
-            tmp += self.indent + ' <displayMode>{}</displayMode>\n'.format(str(self.__displayMode))
+            tmp += self.indent + str(self.__displayMode)
         tmp += self.indent + '</BalloonStyle>\n'
         return tmp
 
@@ -2943,7 +2915,6 @@ class StyleMap(KMLObject):
         if key not in ['normal','highlight']:
             raise KeyError('key must be normal or highlight, not {}'.format(key))
         self.__styleURL[key] = value
-        
     
     def __str__(self):
         tmp = self.indent + '<StyleMap{}>\n'.format(self.id)
@@ -2976,7 +2947,8 @@ class Folder(KMLContainer):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-    
+        logger.debug('Folder created')
+        
     def append(self, item):
         # Overload the append method to check class inheritance.
         # If of the correct derived class, call the super's append.
@@ -2984,6 +2956,11 @@ class Folder(KMLContainer):
             super().append(item)
         else:
             raise TypeError('item must be derived from type KMLFeature, not {}'.format(type(item)))
+       
+    def __str__(self):
+        tmp = self.indent + '<Folder{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</Folder>\n'
         
 class Document(KMLContainer):
     """
@@ -3100,6 +3077,7 @@ class LatLonBox(KMLObject):
         self.__west = None
         self.__rotation = None
         super().__init__(**kwargs)
+        logger.debug('LatLonBox created')
 
     @property
     def north(self):
@@ -3157,7 +3135,10 @@ class LatLonBox(KMLObject):
     
     @rotation.setter
     def rotation(self, value):
-        self.__rotation = angle180(value)
+        if value is not None:
+            self.__rotation = angle180(value)
+        else:
+            self.__rotation = None
         
 
     def __contains__(self, p):
@@ -3183,15 +3164,18 @@ class LatLonBox(KMLObject):
         if self.__north is None or \
            self.__south is None or \
            self.__east is None or\
-           self.__west is None
+           self.__west is None:
+            raise ValueError('All coordinates must be set')
         tmp = self.indent + '<LatLonBox>\n'
         tmp += self.indent + ' <north>{}</north>\n'.format(self.__north)
         tmp += self.indent + ' <south>{}</south>\n'.format(self.__south)
         tmp += self.indent + ' <east>{}</east>\n'.format(self.__east)
         tmp += self.indent + ' <west>{}</west>\n'.format(self.__west)
-        tmp += self.indent + ' <rotation>{}</rotation>\n'.format(self.__rotation)
+        if self.__rotation is not None:
+            tmp += self.indent + ' <rotation>{}</rotation>\n'.format(self.__rotation)
         tmp += self.indent + '</LatLonBox>\n'
-
+        return tmp
+    
 class GroundOverlay(KMLOverlay):
     """
     This element draws an image overlay draped onto the terrain. The <href> child
@@ -3216,42 +3200,20 @@ class GroundOverlay(KMLOverlay):
         self.__altitude = None
         self.__boundaries = None
         self.set(**kwargs)
-    
+        logger.debug('GroundOverlay created')
     @property
     def altitudeMode(self):
         """
-        Specifies how the <altitude>is interpreted. Possible values are
-        
-            clampToGround - (default)
-                Indicates to ignore the altitude specification and drape the overlay over
-                the terrain.
-            relativeToGround
-                Interprets the <altitude> as a value in meters above the ground.
-            absolute
-                Sets the altitude of the overlay relative to sea level, regardless
-                of the actual elevation of the terrain beneath the element. For example, if
-                you set the altitude of an overlay to 10 meters with an absolute altitude
-                mode, the overlay will appear to be at ground level if the terrain beneath
-                is also 10 meters above sea level. If the terrain is 3 meters above sea
-                level, the overlay will appear elevated above the terrain by 7 meters.
-            relativeToSeaFloor
-                Interprets the <altitude> as a value in meters above the sea floor. If the
-                point is above land rather than sea, the <altitude> will be interpreted as
-                being above the ground.
-            clampToSeaFloor
-                The <altitude> specification is ignored, and the overlay will be draped over
-                the sea floor. If the point is on land rather than at sea, the overlay will
-                be positioned on the ground.
-        """    
+        See help(altitudeModeEnum)
+        """
         return self.__altitudeMode
     
     @altitudeMode.setter
     def altitudeMode(self, value):
         if value is not None:
-            if type(value) is not AltitudeMode:
-                raise TypeError('altitudeMode must be of type AltitudeMode, not {}'.format(type(value)))
-            value.parent = self
-        self.__altitudeMode = value
+            self.__altitudeMode = altitudeModeEnum[value]
+        else:
+            self.__altitudeMode = None
 
     @property
     def altitude(self):
@@ -3283,7 +3245,30 @@ class GroundOverlay(KMLOverlay):
             <rotation> Specifies a rotation of the overlay about its center, in degrees. Values can be ±180. The default is 0 (north). Rotations are specified in a counterclockwise direction.
 
         <gx:LatLonQuad>
-            Used for nonrectangular quadrilateral ground overlays.
+            Used for non-rectangular quadrilateral ground overlays.
+        """
+        return self.__boundaries
+    
+    @boundaries.setter
+    def boundaries(self, value):
+        if value is not None:
+            if type(value) not in [LatLonBox]: #, gx_LatLonQuad]:
+                raise TypeError('boundaries must be of type LatLonBox or gx_LatLonQuad, not {}'.format(type(value)))
+            value.parent = self
+        self.__boundaries = value
+    
+    def __str__(self):
+        tmp = self.indent + '<GroundOverlay{}>\n'.format(self.id)
+        if self.__altitude is not None:
+            tmp += self.indent + ' <altitude>{}</altitude>\n'.format(self.__altitude)
+        if self.__altitudeMode is not None:
+            tmp += self.indent + str(self.__altitudeMode)
+        if self.__boundaries is not None:
+            tmp += str(self.__boundaries)
+        tmp += self.indent + '</GoundOverlay>\n'
+        return tmp
+        
+            
 
 
 
