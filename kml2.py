@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger()
 # Remove after testing
-f = logging.Formatter('%(levelname)-8s:%(funcName)-20s %(lineno)-5s:%(message)s')
+f = logging.Formatter('%(levelname)-8s:[%(module)-10s.%(funcName)-20s %(lineno)-5s:%(message)s')
 h = logging.StreamHandler()
 h.setFormatter(f)
 logger.addHandler(h)
