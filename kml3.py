@@ -332,6 +332,160 @@ class Color(object):
     def __str__(self):
         return str(self.__alpha) + str(self.__blue) + str(self.__green) + str(self.__red)
 
+class KMLDateTime(object):
+    """
+    Date/Time object for handling Date.Time formatting for TimeSpan and TimeStamp
+    
+    Usage:
+    
+        x = KMLDateTime('2006-05-01', 'gDate')                  # returns '2006-05-01'
+        x = KMLDateTime('2006-05-01', 'gYearMonth')             # returns '2006-05'
+        x = KMLDateTime('2006-05-01', 'gYear')                  # returns '2006'
+        x = KMLDateTime('2006', 'gDate')                        # returns '2006-01-01'
+        x = KMLDateTime('2006', 'gYearMonth')                   # returns '2006-01'
+        x = KMLDateTime('2006-05-01T23:59:59Z', 'gDateTime')    # returns '2006-05-01T23:59:59Z'
+        x = KMLDateTime('2006-05-01T23:59:59Z', 'UTC')          # returns '2006-05-01T23:59:59+10:00' (local time zone)
+        x = KMLDateTime('2006', 'UTC')                          # returns '2006-01-01T00:00:00+10:00' (local time zone)
+    """
+    #
+    # Extends      :
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained By : TimeSpan, TimeStamp
+    #
+
+    def __init__(self, value=datetime.now()):
+        self.__value = None
+        self.__format = None
+        self.value = value
+        self.__precision = 4
+        logging.debug('KMLDateTime created')
+
+    @property
+    def value(self):
+        """
+        Returns the portion of Date/Time as specified in format.
+        
+        When setting a value: 
+            if only the year is given, the date will default to Jan 01.
+            if only the year and month is given, the date will default to the 1st.
+        
+        
+        Time strings must conform to KML standard as per:
+            https://developers.google.com/kml/documentation/kmlreference#timestamp
+            
+        """
+        if self.__format in ['Y', 'gYear']:
+            return '{:04}'.format(self.__value.year)
+        if self.__format in ['YM', 'gYearMonth']:
+            return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
+        if self.__format in ['YMD', 'date']:
+            return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
+        if self.__format in ['Z', 'dateTime']:  
+            return self.__value.isoformat().split('.')[0] + 'Z'
+        if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
+            d = datetime.now() - datetime.utcnow()
+            t = d.seconds + round(d.microseconds / 1000000)
+            return '{}{:+03}:{:02}'.format(self.__value.isoformat().split('.')[0], divmod(t, 3600)[0], divmod(t, 3600)[1])
+
+    @value.setter
+    def value(self, value):
+        if value is not None:
+            if type(value) is str:
+                logger.debug(value)
+                self.format = self.__getFormat(value)
+                logger.debug('Format is {}'.format(self.format))
+                # Convert strings to date based in value of format
+                if self.format == 'gYear':
+                    # Check the Year to make sure it is are valid numbers.  If so, reasemble and convert
+                    if number.isInt(value.split('-')[0]):
+                        # NOTE: XML Schema 2.0 allows for 5 digit years.  Although this code will manipulate a 5 digit year,
+                        #       strptime does not support it so we are stuck with a 4 digit year for now.
+                        value = datetime.strptime('{:04}'.format(int(value.split('-')[0])) + '0101', '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year {}'.format(value[:4]))
+                elif self.format == 'gYearMonth':
+                    # Check the Year and Month part to make sure they are valid numbers.  If so, reasemble and convert. Default to 1st of the month
+                    dateparts = value[:7].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + '01', '%Y%m%d')
+                        logging.debug(value)
+                    else:
+                        raise ValueError('Invalid year-month {}'.format(value[:7]))
+                elif self.format == 'date':
+                    # Check each Year, Day and Month part to make sure they are valid numbers.  If so, reasemble and convert
+                    dateparts = value[:10].split('-')
+                    if number.isInt(dateparts[0]) and number.isInt(dateparts[1]) and number.isInt(dateparts[2]):
+                        value = datetime.strptime(dateparts[0] + dateparts[1] + dateparts[2], '%Y%m%d')
+                    else:
+                        raise ValueError('Invalid year-month-day {}'.format(value[:10]))
+                elif self.format ==  'dateTime':
+                    # Provide strptime the formatting and convert. Straight forward
+                    try:
+                        value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
+                    except:
+                        raise  # Raise what ever error gets thrown if it doesnt work
+                elif self.format == 'UTC':
+                    # Strip the ':' out of the timezone part and use strptime to convert the string to a datetime
+                    try:
+                        value = datetime.strptime(value[:len(value) - 6] + value[len(value) - 6:].replace(':', ''), '%Y-%m-%dT%H:%M:%S%z')
+                    except:
+                        raise  # Raise what ever error gets thrown if it doesnt work
+            if type(value) is not datetime:
+                raise TypeError('Failed to convert {} into Datetime'.format(type(value)))
+        self.__value = value
+
+    @property
+    def format(self):
+        return self.__format
+    
+    @format.setter
+    def format(self, value):
+        if value not in ['gYear',             # Year only
+                         'gYearMonth',        # Year and Month
+                         'date',              # Year, Month and Day
+                         'dateTime',          # Full Date/Time UTC
+                         'UTC']:              # Full Date/Time with UTC conversion
+            raise ValueError('Format pattern does not match')
+        self.__format = value
+    
+    def __getFormat(self, value):
+        # Attempt to determine how much of the date we were given and adjust the format appropiately
+        if value is None:
+            return None
+        datepart = None
+        timepart = None
+        logger.debug('Detecting date/time format')
+        if 'T' in value:
+            datepart, timepart = value.split('T')
+        else:
+            datepart = value
+        
+        if timepart is None:
+            if len(datepart) == 4:                                     # Assume just the year is given
+                logger.debug('Setting format to gYear')
+                return 'gYear'
+            elif 6 <= len(datepart) <= 7:                                # Assume year and month in either '2004-06' or '200406'
+                logger.debug('Setting format to gMonthYear')
+                return 'gYearMonth'
+            elif 8 <= len(datepart) <= 10:                               # Assume single date in either '2004-06-12' or '20040612'
+                logger.debug('Setting format to date')
+                return 'date'
+        else:
+            if 'Z' in timepart:                    # Assume full date time
+                logger.debug('Setting format to dateTime')
+                return 'dateTime'
+            elif '+' in timepart or '-' in timepart:  # Assume UTC with time zone offset
+                logger.debug('Setting format to UTC')
+                return 'UTC'
+        raise ValueError('format not set and unable to determine format from {}'.format(value)) 
+    
+    def __str__(self):
+        return self.value
+
 ################################################################################################
 #                                                                                              #
 #   KML Enum definitions                                                                       #
@@ -473,9 +627,10 @@ class KMLObject(object):
                         self.__attributes[key] = attributeTypes[key](int(value))                        # Set the Enum type by integer value
                     else:                                                                               # 
                         self.__attributes[key] = attributeTypes[key][str(value).lower()]                # Set the enum by name (case insensitive as Key is used to build the tag)
-                elif KMLObject in getmro(attributeTypes[key]):                                          # Check if type is an Object
+                elif type(value) in getmro(attributeTypes[key]):                                          # Check if type is an Object
                     logger.debug('Attribute type of KMLObject')
                     # Setting an object as an attribute increases is indentation
+                    #if attributeTypes[key] in 
                     self.__attributes[key] = attributeTypes[key](value)                                 # Create an instance of the object, passing the value to the init
                     self.__attributes[key].depth = self.depth + 1                                       # Increase the objects depth
                 else:                                                                                   # All other types
@@ -502,7 +657,7 @@ class KMLObject(object):
 
 class KMLFeature(KMLObject):
     def __init__(self):
-        super().__init__(['name', 'description', 'visibility', 'open', 'atom:link', 'atom:author', 'address', 'xal:AddressDetails', 'phoneNumber', 'Snippet'])
+        super().__init__(['name', 'description', 'visibility', 'open', 'atom:link', 'atom:author', 'address', 'xal:AddressDetails', 'phoneNumber', 'Snippet', 'time'])
         logging.debug('KMLFeature created')
     
     def __str__(self):
@@ -542,6 +697,38 @@ class Snippet(KMLObject):
         if self.maxLines is not None:
             tmp += ' maxLines="{}"'.format(self.maxLines)
         tmp += '>{}</Snippet>\n'.format(self.value)
+        return tmp
+
+class TimePrimitive(KMLObject):
+    def __init__(self, attributes):
+        super().__init__(attributes)
+        
+class TimeStamp(TimePrimitive):
+    def __init__(self, value = None):
+        super().__init__(['when'])
+        if value is not None:
+            self['when'] = str(value)
+        logging.debug('TimeStamp created')
+    
+    def __str__(self):
+        tmp = self.indent + '<TimeStamp{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</TimeStamp>\n'
+        return tmp
+
+class TimeSpan(TimePrimitive):
+    def __init__(self, begin = None, end = None):
+        super().__init__(['begin', 'end'])
+        if begin is not None:
+            self['begin'] = begin
+        if end is not None:
+            self['end'] = end
+        logging.debug('TimeSpan created')
+    
+    def __str__(self):
+        tmp = self.indent + '<TimeSpan{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</TimeSpan>\n'
         return tmp
 
 
@@ -587,4 +774,8 @@ attributeTypes = {
     'phoneNumber'           : str,
     'Snippet'               : Snippet,
     #'View'                  : KMLView,
+    'begin'                 : KMLDateTime,
+    'end'                   : KMLDateTime,
+    'when'                  : KMLDateTime,
+    'time'                  : TimePrimitive,        # TimeStamp and TimeSpan derive from this
 }
