@@ -63,7 +63,7 @@ class number(float):
 
 class colorAttribute(int):
     """
-    Subclass of the int datatype.  Used to represent a color attribute.
+    Subclass of the int datatype.  Used to represent a single color attribute.
     Valid values are from 0 to 255.
     
     Can be created in two ways:
@@ -187,6 +187,150 @@ class angle360(number):
     def __init__(self, value):
         if not (0.0 <= value < 360.0):
             raise ValueError('Value out of range')
+
+class colorAttribute(int):
+    """
+    Represents a color attribute.  Valid values are from 0 to 255.
+    
+    Usage:
+    
+        x = colorAttribute(255)
+        x = colorAttribute('FF')
+    
+    """
+    #
+    # Extends      : int
+    #
+    # Extended by  :
+    #
+    # Contains     :
+    #
+    # Contained By : Color
+    # 
+
+    def __new__(self, value=0):
+        if type(value) not in [int, str]:
+            raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
+        if type(value) is str:
+            value = int(value, 16)
+        if not 0 <= value <= 255:
+            raise ValueError('Value must be between 0 and 255')
+        return int.__new__(self, value)
+
+    def __str__(self):
+        return '{:02X}'.format(self)
+
+class Color(object):
+    """
+    Represents a color as a complete attribute with alpha, red, green and blue.
+    
+    Color attribute can be expressed as an 8 byte value in the format of aabbggrr:
+    
+        aa = Alpha
+        bb = Blue
+        gg = Green
+        rr = Red
+
+    Usage:
+        x = Color('FF0000FF')                # gives RED
+        x = Color('FF00FF00')                # gives GREEN
+        x = Color('FFFF0000')                # gives BLUE
+        x = Color('FFFF0000')                # gives BLUE
+        x = Color('FFFFFFFF')                # gives WHITE
+    
+    Color can also be expressed as four integer or hex values, in the order of a, b, g, r:
+    
+    Usage:
+        x = Color(255, 0, 0, 255)            # gives RED
+        x = Color('FF', '00', '00', 'FF')    # gives RED
+        
+    All attributes can be modified using decimal values or hex strings.
+    
+    Usage:
+        x.red = 255
+        x.green = 'A0'
+        x.alpha = '80'
+    
+    """
+    #
+    # Extends      :
+    #
+    # Extended by  :
+    #
+    # Contains     : colorAttribute
+    #
+    # Contained by : ColorStyle
+    #
+
+    def __init__(self, *args):
+        
+        self.__alpha = colorAttribute(255)
+        self.__red = colorAttribute(255)
+        self.__green = colorAttribute(255)
+        self.__blue = colorAttribute(255)
+        self.__setup(*args)
+        logging.debug('Color created')
+
+    def __setup(self, *args):
+        if len(args) == 1:                  # If there is only one argument, assume it is a color code
+            if type(args[0]) is str:        # Check it's type
+                if len(args[0]) != 8:       # check it's length
+                    raise ValueError('Color value must be 8 bytes in length, aabbggrr. See help(Color).')
+                else:
+                    self.color = args[0]    # Assign it to the setter to interpret
+        elif len(args) == 4:                # If there are 4 arguments, assume they are color attribute assignments
+            self.alpha = args[0]
+            self.blue = args[1]
+            self.green = args[2]
+            self.red = args[3]
+        else:
+            raise RuntimeError('Invalid number of arguments for Color.  See help(Color) for usage.')
+    
+    @property
+    def color(selfself):
+        return self.__str__()
+    
+    @color.setter
+    def color(self, value):
+        self.__alpha = colorAttribute(value[:2])
+        self.__blue = colorAttribute(value[2:4])
+        self.__green = colorAttribute(value[4:6])
+        self.__red = colorAttribute(value[6:8])
+    
+    @property
+    def alpha(self):
+        return self.__alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        self.__alpha = colorAttribute(value)
+
+    @property
+    def red(self):
+        return self.__red
+
+    @red.setter
+    def red(self, value):
+        self.__red = colorAttribute(value)
+
+    @property
+    def green(self):
+        return self.__green
+
+    @green.setter
+    def green(self, value):
+        self.__green = colorAttribute(value)
+
+    @property
+    def blue(self):
+        return self.__blue
+
+    @blue.setter
+    def blue(self, value):
+        self.__blue = colorAttribute(value)
+
+    def __str__(self):
+        return str(self.__alpha) + str(self.__blue) + str(self.__green) + str(self.__red)
 
 ################################################################################################
 #                                                                                              #
@@ -416,6 +560,17 @@ class Snippet(KMLObject):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 attributeTypes = {
     'latitude'              : angle90,
     'longitude'             : angle180,
@@ -431,5 +586,5 @@ attributeTypes = {
     'xal:AddressDetails'    : str,
     'phoneNumber'           : str,
     'Snippet'               : Snippet,
-    'View'                  : KMLView,
+    #'View'                  : KMLView,
 }
