@@ -13,6 +13,7 @@ from time import time
 
 from inspect import getmro
 from enum import Enum, EnumMeta
+from collections import deque
 
 ################################################################################################
 #                                                                                              #
@@ -559,7 +560,7 @@ class KMLObject(object):
 
     def __init__(self, permittedAttributes):
         self.__depth = 0
-        self.__permittedAttributes = ['id'] + permittedAttributes
+        self.__permittedAttributes = ['id','depth','indent'] + permittedAttributes
         logging.debug('KMLObject created')
     
     @property
@@ -578,9 +579,10 @@ class KMLObject(object):
                 setattr(a, 'depth', self.depth + 1)
 
     def __getattribute__(self, name):
+        # Pass all inbuilt functions and private attributes up to super()
         if '__' in name:        return super().__getattribute__(name)
-        if name == 'indent':    return super().__getattribute__(name)
         
+        # Exclude anything thats not in the permitted list
         if name not in self.__permittedAttributes:
             raise AttributeError('Attribute {} not supported by object {}'.format(name, self.__class__.__name__))
 
@@ -590,9 +592,8 @@ class KMLObject(object):
                 return ' id="{}"'.format(self.__dict__[name])   # format and return it
             else:
                 return ''
-        else:
-            return super().__getattribute__(name)
-
+        
+        return super().__getattribute__(name)
             
         if name not in self.__dict__:
             raise ValueError('Attribute {} queried before assignment on object {}'.format(name, self.__class__.__name__))
@@ -614,9 +615,8 @@ class KMLObject(object):
         if type(value) is attributeTypes[name]:
             super().__setattr__(name, value)
             logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
-            if hasattr(value, '_KMLObject__depth'):
-                # TODO: Tidy this up!!!
-                value._KMLObject__depth = self._KMLObject__depth + 1
+            if hasattr(value, 'depth'):
+                value.depth = self.__depth + 1
             return
 
         # See if the attribute expects an Enum
@@ -630,13 +630,9 @@ class KMLObject(object):
         
         # if we make it this far, then create a new instance using value as an init argument
         tmpobj = attributeTypes[name](value)
-        if hasattr(tmpobj, '_KMLObject__depth'):
-            # TODO: Tidy this up!!!
-            tmpobj._KMLObject__depth = self._KMLObject__depth + 1
+        if hasattr(tmpobj, 'depth'):
+            tmpobj.depth = self.__depth + 1
         super().__setattr__(name, tmpobj)                                 # Create an instance of the type passing the value to the init
-    
-#    def __delitem__(self, key):
-#        del self.__attributes[key]
     
     def __str__(self):
         tmp = ''
@@ -707,6 +703,29 @@ class Snippet(KMLObject):
         return tmp
         
 class TimePrimitive(KMLObject):
+    """
+    Abstract class that returns a TimeStamp or TimeSpan object depending on the number of values given.
+    
+    If one value is given, a TimeStamp object is returned.
+    If two (or more) values are given, a TimeSpan object is returned.  The first value will be 'begin' and
+    the second value will be 'end'
+    
+    Options can be passed as a string (for one option), list or tuple (for two or more)
+    
+    Only the first two values will be used.  Any other values in the list or tuple will be ignored.
+    
+    All values must be valid DateTime values.
+    
+    Usage:
+    
+        x = TimePrimitive('2006')             # returns TimeStamp with <when> = '2006'
+        x = TimePrimitive(['2006','2007'])    # returns TimeSpan with <begin> = '2006' and <end> = '2007'
+        x = TimePrimitive(['2006',None])      # returns TimeSpan with <begin> = '2006' and no <end>
+    
+        f = KMLFeature()
+        f.time = '2006'                       # f.time is TimeStamp with <when> = '2006'
+        f.time = '2006', '2007'               # f.time is TimeSpan with <begin> = '2006' and <end> = '2007'
+    """
     def __new__(self, arg):
         if type(arg) in [TimeSpan,TimeStamp]:
             return arg
@@ -747,12 +766,26 @@ class TimeSpan(KMLObject):
         tmp += self.indent + '</TimeSpan>\n'
         return tmp
 
+class Coordinate(KMLObject):
+    def __init__(self, lon = None, lat = None, alt = None):
+        super().__init__(['longitude', 'latitude', 'altitude'])
+        self.longitude = lon
+        self.latitude = lat
+        if alt is not None:
+            self.altitude = alt
 
+    def __str__(self):
+        if hasattr(self, 'altitude'):
+            return self.indent + '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
+        else:
+            return self.indent + '{},{}'.format(self.longitude, self.latitude)
 
-
-
-
-
+class Container(KMLObject, deque):
+    def __init__(self):
+        super().__init__(['append','appendleft','clear','copy','count','extend','extendleft','indent','insert','pop','popleft','reverse','rotate'])
+    
+    
+        
 
 
 
@@ -773,8 +806,9 @@ class TimeSpan(KMLObject):
 
 
 attributeTypes = {
-    # Attribute name        : List of possible data types
+    # Attribute name        : Data type
     'id'                    : str,
+    'depth'                 : int,
     'latitude'              : angle90,
     'longitude'             : angle180,
     'altitude'              : number,
