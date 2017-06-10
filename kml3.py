@@ -395,9 +395,7 @@ class KMLDateTime(object):
     def value(self, value):
         if value is not None:
             if type(value) is str:
-                logger.debug(value)
                 self.format = self.__getFormat(value)
-                logger.debug('Format is {}'.format(self.format))
                 # Convert strings to date based in value of format
                 if self.format == 'gYear':
                     # Check the Year to make sure it is are valid numbers.  If so, reasemble and convert
@@ -458,7 +456,6 @@ class KMLDateTime(object):
             return None
         datepart = None
         timepart = None
-        logger.debug('Detecting date/time format')
         if 'T' in value:
             datepart, timepart = value.split('T')
         else:
@@ -466,20 +463,15 @@ class KMLDateTime(object):
         
         if timepart is None:
             if len(datepart) == 4:                                     # Assume just the year is given
-                logger.debug('Setting format to gYear')
                 return 'gYear'
             elif 6 <= len(datepart) <= 7:                                # Assume year and month in either '2004-06' or '200406'
-                logger.debug('Setting format to gMonthYear')
                 return 'gYearMonth'
             elif 8 <= len(datepart) <= 10:                               # Assume single date in either '2004-06-12' or '20040612'
-                logger.debug('Setting format to date')
                 return 'date'
         else:
             if 'Z' in timepart:                    # Assume full date time
-                logger.debug('Setting format to dateTime')
                 return 'dateTime'
             elif '+' in timepart or '-' in timepart:  # Assume UTC with time zone offset
-                logger.debug('Setting format to UTC')
                 return 'UTC'
         raise ValueError('format not set and unable to determine format from {}'.format(value)) 
     
@@ -563,20 +555,16 @@ class displayModeEnum(Enum):
 #                                                                                              #
 ################################################################################################
 
-
 class KMLObject(object):
 
     def __init__(self, permittedAttributes):
-        #self.__parent = None
-        self.__id = None
-        self.__attributes = {}
         self.__depth = 0
-        self.__permittedAttributes = permittedAttributes
+        self.__permittedAttributes = ['id'] + permittedAttributes
         logging.debug('KMLObject created')
     
     @property
     def indent(self):
-        return ' ' * self.depth
+        return ' ' * self.__depth
     
     @property
     def depth(self):
@@ -585,79 +573,89 @@ class KMLObject(object):
     @depth.setter
     def depth(self, value):
         self.__depth = value
-        for a in self.__attributes:
-            if KMLObject in getmro(self.__attributes[a].__class__):
-                self.__attributes[a].depth = self.depth + 1
+        for a in self.__dict__.items():
+            if hasattr(a, 'depth'):
+                setattr(a, 'depth', self.depth + 1)
 
-    @property
-    def id(self):
-        """
-        Many object contain an ID tag for later reference.
+    def __getattribute__(self, name):
+        if '__' in name:        return super().__getattribute__(name)
+        if name == 'indent':    return super().__getattribute__(name)
         
-        If set, this property will return the tag.  if not, it returns and empty
-        string.
-        """
-        if self.__id is None:
-            return ''
-        else:
-            return ' id="{}"'.format(self.__id)
+        if name not in self.__permittedAttributes:
+            raise AttributeError('Attribute {} not supported by object {}'.format(name, self.__class__.__name__))
 
-    @id.setter
-    def id(self, id):
-        self.__id = id
+        # Treat id as a special case
+        if name == 'id':
+            if 'id' in self.__dict__:
+                return ' id="{}"'.format(self.__dict__[name])   # format and return it
+            else:
+                return ''
+        else:
+            return super().__getattribute__(name)
+
+            
+        if name not in self.__dict__:
+            raise ValueError('Attribute {} queried before assignment on object {}'.format(name, self.__class__.__name__))
+            
 
     
-    def __getitem__(self, key):
-        return self.__attributes[key]
+    def __setattr__(self, name, value):
+        if '__' in name:
+            super().__setattr__(name, value)
+            return
+        
+        if name not in self.__permittedAttributes:
+            raise AttributeError('Attribute {} not supported by object {}'.format(name, self.__class__.__name__))
+        
+        if name not in attributeTypes:
+            raise RuntimeError('Type for attribute {} not defined'.format(name))
+
+        # Check if value is already of the correct type
+        if type(value) in attributeTypes[name]:
+            super().__setattr__(name, value)
+            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
+            if hasattr(value, '_KMLObject__depth'):
+                # TODO: Tidy this up!!!
+                value._KMLObject__depth = self._KMLObject__depth + 1
+            return
+
+        # See if the attribute expects an Enum
+        if Enum in getmro(attributeTypes[name][0]):
+            logger.debug('Attribute type of Enum')
+            if number.isInt(value):
+                super().__setattr__(name, attributeTypes[name][0](int(value)))    # Set Enum by integer value                        
+            else: 
+                super().__setattr__(name, attributeTypes[name][0](value))         # Set the enum by name
+            return
+        
+        # if we make it this far, then create a new instance using value as an init argument
+        tmpobj = attributeTypes[name][0](value)
+        if hasattr(tmpobj, '_KMLObject__depth'):
+            # TODO: Tidy this up!!!
+            tmpobj._KMLObject__depth = self._KMLObject__depth + 1
+        super().__setattr__(name, tmpobj)                                 # Create an instance of the type passing the value to the init
     
-    def __setitem__(self, key, value):
-        if key in self.__permittedAttributes:                                                           # Check if this object supports this attribute
-            if key not in attributeTypes:                                                               # Check if the datatype has been defined
-                raise RuntimeError('Type for attribute {} not defined'.format(key))                     # Datatype not defined
-            if type(value) == attributeTypes[key]:                                                      # Check if the data passed in is already of the correct type
-                self.__attributes[key] = value                                                          # - if so, assign it
-                logger.debug('Object of type {} appended'.format(type(value)))                          
-                if hasattr(self.__attributes[key], 'depth'):                                            # Check if the attribute has a depth property
-                    self.__attributes[key].depth = self.depth + 1                                       # - if so, increase it
-            else:                                                                                       # Data is not of the correct type
-                if Enum in getmro(attributeTypes[key]):                                                 # Check if type is an Enum
-                    logger.debug('Attribute type of Enum')
-                    # Enums are created slightly different than objects
-                    if number.isInt(value):                                                             # Check if the value can be converted to an integer (Enums can be set by integer value)
-                        self.__attributes[key] = attributeTypes[key](int(value))                        # Set the Enum type by integer value
-                    else:                                                                               # 
-                        self.__attributes[key] = attributeTypes[key][str(value).lower()]                # Set the enum by name (case insensitive as Key is used to build the tag)
-                elif type(value) in getmro(attributeTypes[key]):                                          # Check if type is an Object
-                    logger.debug('Attribute type of KMLObject')
-                    # Setting an object as an attribute increases is indentation
-                    #if attributeTypes[key] in 
-                    self.__attributes[key] = attributeTypes[key](value)                                 # Create an instance of the object, passing the value to the init
-                    self.__attributes[key].depth = self.depth + 1                                       # Increase the objects depth
-                else:                                                                                   # All other types
-                    logger.debug('Standard attribute type')
-                    self.__attributes[key] = attributeTypes[key](value)                                 # Create an instance of the type passing the value to the init
-        else:
-            logging.debug('Attibute {} not permitted at {}'.format(key, self.__class__.__name__))       # Attribute is not permitted/supported by this object
-    
-    def __delitem__(self, key):
-        del self.__attributes[key]
+#    def __delitem__(self, key):
+#        del self.__attributes[key]
     
     def __str__(self):
         tmp = ''
-        for a in self.__attributes:
-            logging.debug(a)
-            if KMLObject in getmro(self.__attributes[a].__class__):
-                # Objects handle their own code formatting and indentation
-                tmp += str(self.__attributes[a])
-            else:
-                # Simple attributes and be easily formatted
-                # All enums should know how to return the proper value when requested.  See the __str__() of the respective enum.
-                tmp += self.indent + ' <{}>{}</{}>\n'.format(a,str(self.__attributes[a]),a)
+        for a in self.__permittedAttributes:        # Cycle through the attributes in order
+            if a == 'id': continue
+            if a in self.__dict__:
+                if self.__dict__[a] is not None:
+                    if KMLObject in getmro(self.__dict__[a].__class__):              # Output the attribute if it has been set
+                        # Objects handle their own code formatting and indentation
+                        tmp += str(self.__dict__[a])
+                    else:
+                        # Simple attributes and be easily formatted
+                        # All enums should know how to return the proper value when requested.  See the __str__() of the respective enum.
+                        tmp += self.indent + ' <{}>{}</{}>\n'.format(a,self.__dict__[a],a)
         return tmp
 
 class KMLFeature(KMLObject):
     def __init__(self):
-        super().__init__(['name', 'description', 'visibility', 'open', 'atom:link', 'atom:author', 'address', 'xal:AddressDetails', 'phoneNumber', 'Snippet', 'time'])
+        super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber', 'Snippet', 'time'])
         logging.debug('KMLFeature created')
     
     def __str__(self):
@@ -667,17 +665,17 @@ class ATOMLink(KMLObject):
     # atom:link is a special case.  It has the link value inside the tag.  No other attributes permitted
     def __init__(self, value):
         self.link = value
-        super().__init__([])
-        logging.debug('ATOMLink created')
+        super().__init__(['link'])
+        logging.debug('atom:link created')
     
     def __str__(self):
         return self.indent + '<atom:link href="{}" />\n'.format(self.link)
     
 class ATOMAuthor(KMLObject):
     def __init__(self, name):
-        super().__init__(['atom:name'])
-        logging.debug('ATOMName created')
-        self['atom:name'] = name
+        super().__init__(['name'])
+        logging.debug('atom:author created')
+        self.name = name
     
     def __str__(self):
         tmp = self.indent + '<atom:author>\n'
@@ -685,25 +683,30 @@ class ATOMAuthor(KMLObject):
         tmp += self.indent + '</atom:author>\n'
         return tmp
 
+class XALAddress(KMLObject):
+    def __init__(self, address):
+        super().__init__(['adress'])
+        logging.debug('xal:AddressDetails created')
+        self.address = address
+    
+    def __str__(self):
+        return self.indent + '<xal:AddressDetails>{}</xal:AddressDetails>\n'.format(self.address)
+
 class Snippet(KMLObject):
     def __init__(self, value, maxLines = None):
+        super().__init__(['details','maxLines'])
         self.maxLines = maxLines
-        self.value = value
-        super().__init__([])
+        self.details = value
         logging.debug('Snippet created')
     
     def __str__(self):
         tmp = self.indent + '<Snippet'
         if self.maxLines is not None:
             tmp += ' maxLines="{}"'.format(self.maxLines)
-        tmp += '>{}</Snippet>\n'.format(self.value)
+        tmp += '>{}</Snippet>\n'.format(self.details)
         return tmp
-
-class TimePrimitive(KMLObject):
-    def __init__(self, attributes):
-        super().__init__(attributes)
         
-class TimeStamp(TimePrimitive):
+class TimeStamp(KMLObject):
     def __init__(self, value = None):
         super().__init__(['when'])
         if value is not None:
@@ -716,13 +719,13 @@ class TimeStamp(TimePrimitive):
         tmp += self.indent + '</TimeStamp>\n'
         return tmp
 
-class TimeSpan(TimePrimitive):
+class TimeSpan(KMLObject):
     def __init__(self, begin = None, end = None):
         super().__init__(['begin', 'end'])
         if begin is not None:
-            self['begin'] = begin
+            self.begin = begin
         if end is not None:
-            self['end'] = end
+            self.end = end
         logging.debug('TimeSpan created')
     
     def __str__(self):
@@ -759,23 +762,26 @@ class TimeSpan(TimePrimitive):
 
 
 attributeTypes = {
-    'latitude'              : angle90,
-    'longitude'             : angle180,
-    'altitude'              : number,
-    'visibility'            : booleanEnum,
-    'name'                  : str,
-    'description'           : str,
-    'open'                  : booleanEnum,
-    'atom:link'             : ATOMLink,
-    'atom:author'           : ATOMAuthor,
-    'atom:name'             : str,
-    'address'               : str,
-    'xal:AddressDetails'    : str,
-    'phoneNumber'           : str,
-    'Snippet'               : Snippet,
-    #'View'                  : KMLView,
-    'begin'                 : KMLDateTime,
-    'end'                   : KMLDateTime,
-    'when'                  : KMLDateTime,
-    'time'                  : TimePrimitive,        # TimeStamp and TimeSpan derive from this
+    # Attribute name        : List of possible data types
+    'id'                    : [str],
+    'latitude'              : [angle90],
+    'longitude'             : [angle180],
+    'altitude'              : [number],
+    'visibility'            : [booleanEnum],
+    'name'                  : [str],
+    'description'           : [str],
+    'open'                  : [booleanEnum],
+    'atom_link'             : [ATOMLink],
+    'link'                  : [str],
+    'atom_author'           : [ATOMAuthor],
+    'address'               : [str],
+    'xal_AddressDetails'    : [str],
+    'phoneNumber'           : [str],
+    'Snippet'               : [Snippet],
+    'maxLines'              : [number],
+    #'View'                  : [KMLView],
+    'begin'                 : [KMLDateTime],
+    'end'                   : [KMLDateTime],
+    'when'                  : [KMLDateTime],
+    'time'                  : [TimeSpan, TimeStamp],
 }
