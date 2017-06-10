@@ -611,7 +611,7 @@ class KMLObject(object):
             raise RuntimeError('Type for attribute {} not defined'.format(name))
 
         # Check if value is already of the correct type
-        if type(value) in attributeTypes[name]:
+        if type(value) is attributeTypes[name]:
             super().__setattr__(name, value)
             logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
             if hasattr(value, '_KMLObject__depth'):
@@ -620,16 +620,16 @@ class KMLObject(object):
             return
 
         # See if the attribute expects an Enum
-        if Enum in getmro(attributeTypes[name][0]):
+        if Enum in getmro(attributeTypes[name]):
             logger.debug('Attribute type of Enum')
             if number.isInt(value):
-                super().__setattr__(name, attributeTypes[name][0](int(value)))    # Set Enum by integer value                        
+                super().__setattr__(name, attributeTypes[name](int(value)))    # Set Enum by integer value                        
             else: 
-                super().__setattr__(name, attributeTypes[name][0](value))         # Set the enum by name
+                super().__setattr__(name, attributeTypes[name](value))         # Set the enum by name
             return
         
         # if we make it this far, then create a new instance using value as an init argument
-        tmpobj = attributeTypes[name][0](value)
+        tmpobj = attributeTypes[name](value)
         if hasattr(tmpobj, '_KMLObject__depth'):
             # TODO: Tidy this up!!!
             tmpobj._KMLObject__depth = self._KMLObject__depth + 1
@@ -706,11 +706,24 @@ class Snippet(KMLObject):
         tmp += '>{}</Snippet>\n'.format(self.details)
         return tmp
         
+class TimePrimitive(KMLObject):
+    def __new__(self, arg):
+        if type(arg) in [TimeSpan,TimeStamp]:
+            return arg
+        if type(arg) is str:
+            return TimeStamp(arg)
+        if type(arg) is list:
+            arg = tuple(arg)
+        if len(arg) == 1:
+            return TimeStamp(arg[0])
+        if len(arg) >= 2:
+            return TimeSpan(arg[0], arg[1])
+
 class TimeStamp(KMLObject):
     def __init__(self, value = None):
         super().__init__(['when'])
         if value is not None:
-            self['when'] = str(value)
+            self.when = value
         logging.debug('TimeStamp created')
     
     def __str__(self):
@@ -759,29 +772,27 @@ class TimeSpan(KMLObject):
 
 
 
-
-
 attributeTypes = {
     # Attribute name        : List of possible data types
-    'id'                    : [str],
-    'latitude'              : [angle90],
-    'longitude'             : [angle180],
-    'altitude'              : [number],
-    'visibility'            : [booleanEnum],
-    'name'                  : [str],
-    'description'           : [str],
-    'open'                  : [booleanEnum],
-    'atom_link'             : [ATOMLink],
-    'link'                  : [str],
-    'atom_author'           : [ATOMAuthor],
-    'address'               : [str],
-    'xal_AddressDetails'    : [str],
-    'phoneNumber'           : [str],
-    'Snippet'               : [Snippet],
-    'maxLines'              : [number],
-    #'View'                  : [KMLView],
-    'begin'                 : [KMLDateTime],
-    'end'                   : [KMLDateTime],
-    'when'                  : [KMLDateTime],
-    'time'                  : [TimeSpan, TimeStamp],
+    'id'                    : str,
+    'latitude'              : angle90,
+    'longitude'             : angle180,
+    'altitude'              : number,
+    'visibility'            : booleanEnum,
+    'name'                  : str,
+    'description'           : str,
+    'open'                  : booleanEnum,
+    'atom_link'             : ATOMLink,
+    'link'                  : str,
+    'atom_author'           : ATOMAuthor,
+    'address'               : str,
+    'xal_AddressDetails'    : str,
+    'phoneNumber'           : str,
+    'Snippet'               : Snippet,
+    'maxLines'              : number,
+    #'View'                  : KMLView,
+    'begin'                 : KMLDateTime,
+    'end'                   : KMLDateTime,
+    'when'                  : KMLDateTime,
+    'time'                  : TimePrimitive,
 }
