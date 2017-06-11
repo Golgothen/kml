@@ -23,7 +23,9 @@ from collections import deque
 
 class number(float):
     """
-    Subclass of the float datatype.
+    Subclass of the float data type.
+    
+    Performs validation on assignment.  Accepts Float and Int.
     
     Provides two class methods:
     
@@ -64,14 +66,22 @@ class number(float):
 
 class colorAttribute(int):
     """
-    Subclass of the int datatype.  Used to represent a single color attribute.
-    Valid values are from 0 to 255.
+    Represents a single color attribute.
     
-    Can be created in two ways:
+    Syntax:
     
-        x = colorAttribute(255)
-        x = colorAttribute('FF')
+        x = colorAttribute(value)
     
+    Args:
+    
+        value           : (int or hex) Integer value between 0 and 255
+                                       HEX value between '00' and 'FF'
+
+    Errors:
+    
+        TypeError       : value is not int or str
+        ValueError      : value is below 0 or above 255
+        ValueError      : Invalid literal
     """
     #
     # Extends      : int
@@ -97,7 +107,19 @@ class colorAttribute(int):
 
 class numberPercent(number):
     """
-    Subclass of number class.  Used to represent a percentage value between 0.0 and 1.0
+    Represents a percentage value between 0.0 and 1.0
+
+    Syntax:
+    
+        x = NumberPercent(value)
+    
+    Args:
+    
+        value           : (float) Float value between 0.0 and 1.0
+    
+    Errors:
+    
+        ValueError      : value is below 0.0 or above 1.0
     """
 
     #
@@ -116,110 +138,87 @@ class numberPercent(number):
 
 class angle90(number):
     """
-    Subclass of number class.  Used to represent an angle value between -90.0 and 90.0
+    Represents an angle from -90.0 and below 90.0.
+    
+    Syntax:
+    
+        x = angle90(value)
+    
+    Args:
+    
+        value           : (float) Float value from -90.0 and below 90.0
+
+    Errors:
+    
+        TypeError       : value is not int or float
+        ValueError      : value is below -90.0 or not below 90.0
     """
-
-    #
-    # Extends      : number
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : Coords, LatLonBox
-    # 
-
     def __init__(self, value):
         if not (-90.0 <= value < 90.0):
             raise ValueError('Value out of range')
 
 class anglepos90(number):
     """
-    Subclass of number class.  Used to represent an angle value between 0.0 and 90.0
+    Represents an angle from 0.0 and 90.0.
+    
+    Syntax:
+    
+        x = anglepos90(value)
+    
+    Args:
+    
+        value           : (float) Float value from 0.0 and 90.0
+
+    Errors:
+    
+        TypeError       : value is not int or float
+        ValueError      : value is below 0.0 or above 90.0
     """
-
-    #
-    # Extends      : number
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : ViewCoords
-    # 
-
     def __init__(self, value):
         if not (0.0 <= value <= 90.0):
             raise ValueError('Value out of range')
 
 class angle180(number):
     """
-    Subclass of number class.  Used to represent an angle value between -180.0 and 1800.0
-    """
-    #
-    # Extends      : number
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : Coords, ViewCoords, CameraCoords
-    # 
+    Represents an angle from -180.0 and below 180.0.
+    
+    Syntax:
+    
+        x = angle180(value)
+    
+    Args:
+    
+        value           : (float) Float value from -180.0 and below 180.0
 
+    Errors:
+    
+        TypeError       : value is not int or float
+        ValueError      : value is below -180.0 or not below 180.0
+    """
     def __init__(self, value):
         if not (-180.0 <= value < 180.0):
             raise ValueError('Value out of range')
 
 class angle360(number):
     """
-    Subclass of number class.  Used to represent an angle value between 0.0 and 360.0
+    Represents an angle from 0.0 and below 360.0.
+    
+    Syntax:
+    
+        x = angle360(value)
+    
+    Args:
+    
+        value           : (float) Float value from 0.0 and below 360.0
+
+    Errors:
+    
+        TypeError       : value is not int or float
+        ValueError      : value is below 0.0 or not below 360.0
     """
-
-    #
-    # Extends      : number
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : IconStyle, Heading
-    # 
-
     def __init__(self, value):
         if not (0.0 <= value < 360.0):
             raise ValueError('Value out of range')
-
-class colorAttribute(int):
-    """
-    Represents a color attribute.  Valid values are from 0 to 255.
-    
-    Usage:
-    
-        x = colorAttribute(255)
-        x = colorAttribute('FF')
-    
-    """
-    #
-    # Extends      : int
-    #
-    # Extended by  :
-    #
-    # Contains     :
-    #
-    # Contained By : Color
-    # 
-
-    def __new__(self, value=0):
-        if type(value) not in [int, str]:
-            raise TypeError('Value must be of type int or str, not {}'.format(value.__class__.__name__))
-        if type(value) is str:
-            value = int(value, 16)
-        if not 0 <= value <= 255:
-            raise ValueError('Value must be between 0 and 255')
-        return int.__new__(self, value)
-
-    def __str__(self):
-        return '{:02X}'.format(self)
 
 class Color(object):
     """
@@ -232,26 +231,24 @@ class Color(object):
         gg = Green
         rr = Red
 
-    Usage:
+    Syntax:
+    
         x = Color('FF0000FF')                # gives RED
-        x = Color('FF00FF00')                # gives GREEN
-        x = Color('FFFF0000')                # gives BLUE
-        x = Color('FFFF0000')                # gives BLUE
-        x = Color('FFFFFFFF')                # gives WHITE
+        x = Color(255, 0, 0, 255')           # gives RED
+        x = Color('FF', '00', '00', 'FF')    # gives RED
     
     Color can also be expressed as four integer or hex values, in the order of a, b, g, r:
     
-    Usage:
-        x = Color(255, 0, 0, 255)            # gives RED
-        x = Color('FF', '00', '00', 'FF')    # gives RED
-        
     All attributes can be modified using decimal values or hex strings.
     
-    Usage:
         x.red = 255
         x.green = 'A0'
         x.alpha = '80'
     
+    Errors:
+    
+        RuntimeError    : Incorrect number of arguments
+        ValueError      : Incorrect length of string color argument
     """
     #
     # Extends      :
@@ -623,11 +620,11 @@ class KMLObject(object):
 
         # See if the attribute expects an Enum
         if Enum in getmro(attributeTypes[name]):
-            logger.debug('Attribute type of Enum')
+            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
             if number.isInt(value):
                 super().__setattr__(name, attributeTypes[name](int(value)))    # Set Enum by integer value                        
             else: 
-                super().__setattr__(name, attributeTypes[name](value))         # Set the enum by name
+                super().__setattr__(name, attributeTypes[name][value])         # Set the enum by name
             return
         
         # if we make it this far, then create a new instance using value as an init argument
@@ -762,7 +759,21 @@ class TimeSpan(KMLObject):
         return tmp
 
 class Coordinate(KMLObject):
-    def __init__(self, lon = None, lat = None, alt = None):
+    """
+    Coordinate object.
+    
+    Syntax:
+    
+        x = Coordinate(lon, lat, [alt])
+    
+    Args:
+    
+        lon             : (angle180) Longitude
+        lat             : (angle90) Latitude
+        alt             : (number) Altitude (optional)
+        
+    """
+    def __init__(self, lon, lat, alt = None):
         super().__init__(['longitude', 'latitude', 'altitude'])
         self.longitude = lon
         self.latitude = lat
@@ -775,36 +786,80 @@ class Coordinate(KMLObject):
         else:
             return '{},{}'.format(self.longitude, self.latitude)
 
+    def __eq__(self, x):
+        if type(x) != type(self):         return False
+        if self.latitude != x.latitude:   return FalSe
+        if self.longitude != x.longitude: return FalSe
+        if hasattr(self, 'altitude') and hasattr(x, 'altitude'):
+            if self.altitude != x.altitude : return False
+        return True
+           
 class Container(KMLObject, deque):
-    def __init__(self, attributes, types):
+    """
+    Creates a collection of objects.
+    
+    Usage:
+    
+        x = Container(attributes, types, [unique])
+        
+    Args:
+    
+        attributes      : (list) List of additional attributes permitted on this object
+        types           : (list) List of data types permitted in this collection.
+                                 Parse an empty list for no restrictions.
+        unique          : (bool) Control if duplicate objects are permitted.
+                                 Objects are compared via == (__eq__) method.
+                                 Optional - default is False (duplicates permitted)
+    """
+    
+    def __init__(self, attributes, types, unique = False):
         # Add the class attributes we need for the deque object
-        super().__init__(attributes + ['append','appendleft','clear','count','insert','pop','popleft',
-                                       'reverse','rotate'])
-        self.__validTypes = types
+        super().__init__(attributes + ['append', 'appendleft', 'clear', 'count', 'index',
+                                       'insert', 'pop', 'popleft', 'reverse', 'rotate'])
+        # List of data types permitted in this collection
+        self.__restrictTypes = False
+        if len(types) > 0:
+            self.__validTypes = types
+            self.__restrictTypes = True
+        # Flag to permit duplicate entries.  Objects should override __eq__ to control comparison between objects
+        self.__unique = unique
         
     def append(self, value):
-        if type(value) not in self.__validTypes:
-            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__restrictTypes:
+            if type(value) not in self.__validTypes:
+                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__unique:
+            for i in range(len(self)):
+                if value == self[i]:
+                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
         value.depth = self.depth + 1
         super().append(value)
 
     def appendleft(self, value):
-        if type(value) not in self.__validTypes:
-            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__restrictTypes:
+            if type(value) not in self.__validTypes:
+                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__unique:
+            for i in range(len(self)):
+                if value == self[i]:
+                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
         value.depth = self.depth + 1
         super().appendleft(value)
 
     def insert(self, index, value):
-        if type(value) not in self.__validTypes:
-            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__restrictTypes:
+            if type(value) not in self.__validTypes:
+                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        if self.__unique:
+            for i in range(len(self)):
+                if value == self[i]:
+                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
         value.depth = self.depth + 1
         super().insert(index, value)
         
 class Coordinates(Container):
     def __init__(self):
         super().__init__([],[Coordinate])
-    
-    # Coordinates container will only accept coordinate objects, so override append, appendleft and insert to check data types
     
     def __str__(self):
         if len(self) == 0: return ''
@@ -818,19 +873,75 @@ class Coordinates(Container):
             tmp += self.indent + '</coordinates>\n'
         return tmp
 
-class GXViewerOptions(KMLObject):
-    def __init__(self):
+class GXViewerOption(KMLObject):
+    """
+    Represents a singe gx:ViewerOptions choice entry
+    
+    Syntax:
+    
+        x = GXViewerOption(name, enabled)
+    
+    Args:
+    
+        name            : (viewerOptionEnum) Option name
+        enabled         : (boolEnum) Enabled (optional) default 1
+    
+    Comparing GXViewerOption will only compare by name, not value. 
+    """ 
+    def __init__(self, name, value = 1):
         super().__init__(['gx_optionName','enabled'])
+        self.gx_optionName = name
+        self.enabled = value
     
     def __str__(self):
-        tmp = '<gx:ViewerOptions>\n'
+        return self.indent + '<gx:option name="{}" enabled={}/>\n'.format(self.gx_optionName, self.enabled)
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.gx_optionName == x
+        else:
+            return self.gx_optionName == x.gx_optionName
         
+class GXViewerOptions(Container):
+    """
+    Collection of GXViewerOption objects
+    
+    Syntax:
+    
+        x = GXViewerOptions()
+        x.append(GXViewerOption(...))
+    """
+    def __init__(self):
+        super().__init__(['seek'], [GXViewerOption], True)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:ViewerOptions>\n'
+        for i in range(len(self)):
+            tmp += str(self[i])
+        tmp += self.indent + '</gx:ViewerOptions>\n'
+        return tmp
+
+    def seek(self, item):
+        """
+        returns reference to a GXViewerOption object by name
         
+        Syntax:
+        
+            x = GXViewerOptions()
+            x.seek('streetview')
+        
+        Can be used to modify attributes:
 
-
-
-
-
+            x.seek('streetview').enabled = 'yes'
+        """
+        try:
+            return self[self.index(GXViewerOption(item))]
+        except ValueError:
+            raise ValueError('GXViewerOption {} not found in GXViewerOptions'.format(item))
+            
+class Camera(KMLObject):
+    def __init__(self):
+            
 
 
 
