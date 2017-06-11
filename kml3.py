@@ -43,7 +43,7 @@ class number(float):
     # 
     def __new__(self, value):
         if type(value) not in [float, int]:
-            raise TypeError('Value must be a number, not {}'.format(type(value)))
+            raise TypeError('Value must be a number, not {}'.format(value.__class__.__name__))
         return float.__new__(self, value)
 
     @classmethod
@@ -85,7 +85,7 @@ class colorAttribute(int):
 
     def __new__(self, value=0):
         if type(value) not in [int, str]:
-            raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
+            raise TypeError('Value must be of type int or str, not {}'.format(value.__class__.__name__))
         if type(value) is str:
             value = int(value, 16)
         if not 0 <= value <= 255:
@@ -211,7 +211,7 @@ class colorAttribute(int):
 
     def __new__(self, value=0):
         if type(value) not in [int, str]:
-            raise TypeError('Value must be of type int or str, not {}'.format(type(value)))
+            raise TypeError('Value must be of type int or str, not {}'.format(value.__class__.__name__))
         if type(value) is str:
             value = int(value, 16)
         if not 0 <= value <= 255:
@@ -363,7 +363,6 @@ class KMLDateTime(object):
         self.__format = None
         self.value = value
         self.__precision = 4
-        logging.debug('KMLDateTime created')
 
     @property
     def value(self):
@@ -556,12 +555,20 @@ class displayModeEnum(Enum):
 #                                                                                              #
 ################################################################################################
 
+class viewerOptionEnum(Enum):
+    streetview = 0
+    historicalimagery = 1
+    sunlight = 2
+    
+    def __str__(self):
+        return self.name
+
 class KMLObject(object):
 
     def __init__(self, permittedAttributes):
         self.__depth = 0
         self.__permittedAttributes = ['id','depth','indent'] + permittedAttributes
-        logging.debug('KMLObject created')
+        logging.debug('{} created'.format(self.__class__.__name__))
     
     @property
     def indent(self):
@@ -594,11 +601,6 @@ class KMLObject(object):
                 return ''
         
         return super().__getattribute__(name)
-            
-        if name not in self.__dict__:
-            raise ValueError('Attribute {} queried before assignment on object {}'.format(name, self.__class__.__name__))
-            
-
     
     def __setattr__(self, name, value):
         if '__' in name:
@@ -652,7 +654,6 @@ class KMLObject(object):
 class KMLFeature(KMLObject):
     def __init__(self):
         super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber', 'Snippet', 'time'])
-        logging.debug('KMLFeature created')
     
     def __str__(self):
         return super().__str__()
@@ -660,9 +661,8 @@ class KMLFeature(KMLObject):
 class ATOMLink(KMLObject):
     # atom:link is a special case.  It has the link value inside the tag.  No other attributes permitted
     def __init__(self, value):
-        self.link = value
         super().__init__(['link'])
-        logging.debug('atom:link created')
+        self.link = value
     
     def __str__(self):
         return self.indent + '<atom:link href="{}" />\n'.format(self.link)
@@ -670,7 +670,6 @@ class ATOMLink(KMLObject):
 class ATOMAuthor(KMLObject):
     def __init__(self, name):
         super().__init__(['name'])
-        logging.debug('atom:author created')
         self.name = name
     
     def __str__(self):
@@ -682,7 +681,6 @@ class ATOMAuthor(KMLObject):
 class XALAddress(KMLObject):
     def __init__(self, address):
         super().__init__(['adress'])
-        logging.debug('xal:AddressDetails created')
         self.address = address
     
     def __str__(self):
@@ -693,7 +691,6 @@ class Snippet(KMLObject):
         super().__init__(['details','maxLines'])
         self.maxLines = maxLines
         self.details = value
-        logging.debug('Snippet created')
     
     def __str__(self):
         tmp = self.indent + '<Snippet'
@@ -743,7 +740,6 @@ class TimeStamp(KMLObject):
         super().__init__(['when'])
         if value is not None:
             self.when = value
-        logging.debug('TimeStamp created')
     
     def __str__(self):
         tmp = self.indent + '<TimeStamp{}>\n'.format(self.id)
@@ -758,7 +754,6 @@ class TimeSpan(KMLObject):
             self.begin = begin
         if end is not None:
             self.end = end
-        logging.debug('TimeSpan created')
     
     def __str__(self):
         tmp = self.indent + '<TimeSpan{}>\n'.format(self.id)
@@ -776,15 +771,60 @@ class Coordinate(KMLObject):
 
     def __str__(self):
         if hasattr(self, 'altitude'):
-            return self.indent + '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
+            return '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
         else:
-            return self.indent + '{},{}'.format(self.longitude, self.latitude)
+            return '{},{}'.format(self.longitude, self.latitude)
 
 class Container(KMLObject, deque):
+    def __init__(self, attributes, types):
+        # Add the class attributes we need for the deque object
+        super().__init__(attributes + ['append','appendleft','clear','count','insert','pop','popleft',
+                                       'reverse','rotate'])
+        self.__validTypes = types
+        
+    def append(self, value):
+        if type(value) not in self.__validTypes:
+            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        value.depth = self.depth + 1
+        super().append(value)
+
+    def appendleft(self, value):
+        if type(value) not in self.__validTypes:
+            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        value.depth = self.depth + 1
+        super().appendleft(value)
+
+    def insert(self, index, value):
+        if type(value) not in self.__validTypes:
+            raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        value.depth = self.depth + 1
+        super().insert(index, value)
+        
+class Coordinates(Container):
     def __init__(self):
-        super().__init__(['append','appendleft','clear','copy','count','extend','extendleft','indent','insert','pop','popleft','reverse','rotate'])
+        super().__init__([],[Coordinate])
     
+    # Coordinates container will only accept coordinate objects, so override append, appendleft and insert to check data types
     
+    def __str__(self):
+        if len(self) == 0: return ''
+        tmp = '<coordinates>'
+        if len(self) == 1:
+            tmp += str(self[0]) + '</coordinates>\n'
+        else:
+            tmp += '\n'
+            for c in range(len(self)):
+                tmp += self.indent + ' ' + str(self[c]) + '\n'
+            tmp += self.indent + '</coordinates>\n'
+        return tmp
+
+class GXViewerOptions(KMLObject):
+    def __init__(self):
+        super().__init__(['gx_optionName','enabled'])
+    
+    def __str__(self):
+        tmp = '<gx:ViewerOptions>\n'
+        
         
 
 
@@ -829,4 +869,7 @@ attributeTypes = {
     'end'                   : KMLDateTime,
     'when'                  : KMLDateTime,
     'time'                  : TimePrimitive,
+    'viewerOptions'         : GXViewerOptions,
+    'gx_optionName'         : viewerOptionEnum,
+    'enabled'               : booleanEnum,
 }
