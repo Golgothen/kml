@@ -1198,7 +1198,43 @@ class StyleSelector(KMLObject):
         if obj.__class__ in [Style, StyleMap]: return obj
         raise TypeError('StyleSelector must be of type Style or StyleMap, not {}'.format(obj.__class__.__name__))
 
-
+class LatLonAltBox(KMLObject):
+    def __init__(self, north, south, east, west):
+        super().__init__(['north', 'south', 'east', 'west', 'minAltitude', 'maxAltitude', 'altitudeMode'])
+        self.north = north
+        self.south = south
+        self.east = east
+        self.west = west
+    
+    def __str__(self):
+        tmp = self.indent + '<LatLonAltBox>\n'
+        tmp += super().__str__()
+        tmp += self.indent _ '</LatLonAltBox>\n'
+        return tmp
+    
+class Lod(KMLObject):
+    def __init__(self, minLodPixels = 256, maxLodPixels = -1, minFadeExtent = 0, maxFadeExtent):
+        super().__init__(['minLodPixels', 'maxLodPixels', 'minFadeExtent', 'maxFadeExtent'])
+        self.minLodPixels = minLodPixels
+        self.maxLodPixels = maxLodPixels
+        self.minFadeExtent = minFadeExtent
+        self.maxFadeExtent = maxFadeExtent
+    
+    def __str__(self):
+        tmp = self.indent + '<Lod>\n'
+        tmp += super().__str__()
+        tmp += self.indent _ '</Lod>\n'
+        return tmp
+    
+class Region(KMLObject):
+    def __init__(self):
+        super().__init__(['LatLonAltBox', 'Lod'])
+    
+    def __str__(self):
+        tmp = self.indent + '<Region{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</Region>\n'
+        return tmp
         
 
 
@@ -1273,4 +1309,17 @@ attributeTypes = {
     'BalloonStyle'          : BalloonStyle,
     'ListStyle'             : ListStyle,
     'styleSelector'         : StyleSelector,
+    'LatLonAltBox'          : LatLonAltBox,
+    'Lod'                   : Lod,
+    'north'                 : angle90,
+    'south'                 : angle90,
+    'east'                  : angle180,
+    'west'                  : angle180,
+    'minAltitude'           : number,
+    'maxAltitude'           : number,
+    'minLodPixels'          : number,
+    'maxLodPixels'          : number,
+    'minFadeExtent'         : number,
+    'maxFadeExtent'         : number,
+    
 }
