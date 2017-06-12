@@ -543,9 +543,43 @@ class displayModeEnum(Enum):
     hide = 1
     
     def __str__(self):
-        return ' <displayMode>{}</displayMode>\n'.format(self.name)
+        return self.name
 
+class hotspotUnitsEnum(Enum):
+    fraction = 0
+    pixels = 1
+    insetPixels = 2
+    
+    def __str__(self):
+        return self.name
 
+class styleMapEnum(Enum):
+    normal = 0
+    highlighted = 1
+    
+    def __str__(self):
+        return self.name
+
+class listItemTypeEnum(Enum):
+    check = 0
+    checkOffOnly = 1
+    checkHiddenChildren = 2
+    radioFolder = 3
+    
+    def __str__(self):
+        return self.name
+
+class itemIconModeEnum(Enum):
+    open = 0
+    closed = 1
+    error = 2
+    fetching0 = 3
+    fetching1 = 4
+    fetching2 = 5
+    
+    def __str__(self):
+        return self.name
+    
 ################################################################################################
 #                                                                                              #
 #   KML Abstract Object definitions (base classes)                                             #
@@ -617,15 +651,20 @@ class KMLObject(object):
             if hasattr(value, 'depth'):
                 value.depth = self.__depth + 1
             return
-
+        
         # See if the attribute expects an Enum
         if Enum in getmro(attributeTypes[name]):
-            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
+            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(attributeTypes[name]).__name__, self.__class__.__name__))                          
             if number.isInt(value):
                 super().__setattr__(name, attributeTypes[name](int(value)))    # Set Enum by integer value                        
             else: 
                 super().__setattr__(name, attributeTypes[name][value])         # Set the enum by name
             return
+        
+        # Check if we have an object of the wrong type
+        if type(value) not in [str, int, float]:
+            if KMLObject in getmro(value.__class__):
+                raise TypeError('Attribute {} must be of type {}, not {}'.format(name, attributeTypes[name].__name__, type(value).__name__))
         
         # if we make it this far, then create a new instance using value as an init argument
         tmpobj = attributeTypes[name](value)
@@ -646,12 +685,17 @@ class KMLObject(object):
                     else:
                         # Simple attributes and be easily formatted
                         # All enums should know how to return the proper value when requested.  See the __str__() of the respective enum.
-                        tmp += self.indent + ' <{}>{}</{}>\n'.format(a,self.__dict__[a],a)
+                        if a[:3] == 'gx_':
+                            tmp += self.indent + ' <{}>{}</{}>\n'.format(a.replace('_',':'),self.__dict__[a],a.replace('_',':'))
+                        else:
+                            tmp += self.indent + ' <{}>{}</{}>\n'.format(a,self.__dict__[a],a)
         return tmp
 
 class KMLFeature(KMLObject):
     def __init__(self):
-        super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber', 'Snippet', 'time', 'view'])
+        super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 
+                          'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
+                          'Snippet', 'time', 'view', 'styleUrl'])
     
     def __str__(self):
         return super().__str__()
@@ -857,7 +901,14 @@ class Container(KMLObject, deque):
                     raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
         value.depth = self.depth + 1
         super().insert(index, value)
-        
+    
+    def __str__(self):
+        tmp = ''
+        tmp += super().__str__()
+        for i in range(len(self)):
+            tmp += str(self[i])
+        return tmp
+
 class Coordinates(Container):
     def __init__(self):
         super().__init__([],[Coordinate])
@@ -917,8 +968,7 @@ class GXViewerOptions(Container):
 
     def __str__(self):
         tmp = self.indent + '<gx:ViewerOptions>\n'
-        for i in range(len(self)):
-            tmp += str(self[i])
+        tmp += super().__str__()
         tmp += self.indent + '</gx:ViewerOptions>\n'
         return tmp
 
@@ -969,11 +1019,182 @@ class KMLView(KMLObject):
         if Camera in getmro(viewertype.__class__): return viewertype
         if LookAt in getmro(viewertype.__class__): return viewertype
         raise TypeError('View object must be Camera or LookAt, not {}'.format(viewertype))
+
+class Icon(KMLObject):
+    def __init__(self, href):
+        super().__init__(['href'])
+        self.href = href
+        0
+    def __str__(self):
+        tmp = self.indent + '<Icon>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Icon>\n'
+        return tmp
+
+class HotSpot(KMLObject):
+    def __init__(self, x, y, xunits, yunits):
+        super().__init__(['x', 'y', 'xunits', 'yunits'])
+        self.x = x
+        self.y = y
+        self.xunits = xunits
+        self.yunits = yunits
+        
+    def __str__(self):
+        return self.indent + '<hotSpot x="{}" y="{}" xunits="{}" yunits="{}"/>\n'.format(self.x, self.y, self.xunits, self.yunits)
+ 
+class IconStyle(KMLObject):
+    def __init__(self):
+        super().__init__(['color', 'colorMode', 'scale', 'heading', 'icon', 'hotSpot'])
+
+    def __str__(self):
+        tmp = self.indent + '<IconStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</IconStyle>\n'
+        return tmp
+
+class LabelStyle(KMLObject):
+    def __init__(self):
+        super().__init__(['color', 'colorMode', 'scale'])
+
+    def __str__(self):
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</LabelStyle>\n'
+        return tmp
+
+class LineStyle(KMLObject):
+    def __init__(self):
+        super().__init__(['color', 'colorMode', 'width', 'gx_outerColor', 'gx_outerWidth',
+                          'gx_physicalWidth', 'gx_labelVisibility'])
+
+    def __str__(self):
+        tmp = self.indent + '<IconStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</IconStyle>\n'
+        return tmp
+
+class PolyStyle(KMLObject):
+    def __init__(self):
+        super().__init__(['color', 'colorMode', 'fill', 'outline'])
+
+    def __str__(self):
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</LabelStyle>\n'
+        return tmp
+
+class BalloonStyle(KMLObject):
+    def __init__(self):
+        super().__init__(['bgColor', 'textColor', 'text', 'displayMode'])
+
+    def __str__(self):
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</LabelStyle>\n'
+        return tmp
+
+class ItemIcon(KMLObject):
+    def __init__(self, state, href):
+        super().__init__(['state', 'href'])
+        self.state = state
+        self.href = href
+    
+    def __str__(self):
+        tmp = self.indent + '<ItemIcon>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</ItemIcon>\n'
+        return tmp
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.state == x
+        else:
+            return self.state == x.state
     
 
+class ListStyle(Container):
+    def __init__(self):
+        super().__init__(['listItemType', 'bgColor'],[ItemIcon], True)
 
+    def __str__(self):
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</LabelStyle>\n'
+        return tmp
 
+class Style(KMLObject):
+    def __init__(self):
+        super().__init__(['IconStyle', 'LabelSty;e', 'LineStyle', 'PolyStyle', 'BalloonStyle', 'ListStyle'])
+    
+    def __str__(self):
+        tmp = self.indent + '<Style{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.ind + '</Style>\n'
+        return tmp
+    
 
+class StyleMapPair(KMLObject):
+    """
+    Represents a singe StyleMap Key Value pair
+    
+    Syntax:
+    
+        x = StyleMapPair(key, styleUrl)
+    
+    Args:
+    
+        key             : (viewerOptionEnum) Option name
+        styleUrl        : (str) URL to the style
+    
+    Comparing StyleMapPair will only compare by key, not value. 
+    """ 
+    def __init__(self, key, styleUrl = ''):
+        super().__init__(['key','styleUrl'])
+        self.key = key
+        self.styleUrl = styleUrl
+        
+    def __str__(self):
+        tmp = self.indent + '<Pair>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Pair>\n'
+        return tmp
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.key == x
+        else:
+            return self.key == x.key
+
+class StyleMap(Container):
+    def __init__(self):
+        super().__init__([], [StyleMapPair], True)
+    
+    def __str__(self):
+        tmp = self.indent + '<StyleMap{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</StileMap>\n'
+        return tmp
+
+    def seek(self, item):
+        """
+        returns reference to a StyleMapPair object by key
+        
+        Syntax:
+        
+            x = StyleMap()
+            x.seek('normal')
+        
+        Can be used to modify attributes:
+
+            x.seek('normal').styleUrl = '#MyStyle'
+        """
+        try:
+            return self[self.index(StyleMapPair(item))]
+        except ValueError:
+            raise ValueError('StyleMapPair {} not found in StyleMap'.format(item))
+            
+
+        
 
 
 
@@ -1015,4 +1236,35 @@ attributeTypes = {
     'roll'                  : angle180,
     'altitudeMode'          : altitudeModeEnum,
     'range'                 : number,
+    'styleUrl'              : str,
+    'color'                 : Color,
+    'colorMode'             : colorModeEnum,
+    'href'                  : str,
+    'icon'                  : Icon,
+    'x'                     : number,
+    'y'                     : number,
+    'xunits'                : hotspotUnitsEnum,
+    'yunits'                : hotspotUnitsEnum,
+    'hotSpot'               : HotSpot,
+    'scale'                 : number,
+    'key'                   : styleMapEnum,
+    'width'                 : number,
+    'gx_outerColor'         : Color,
+    'gx_outerWidth'         : number,
+    'gx_physicalWidth'      : number,
+    'gx_labelVisibility'    : booleanEnum,
+    'fill'                  : booleanEnum,
+    'outline'               : booleanEnum,
+    'bgColor'               : Color,
+    'textColor'             : Color,
+    'text'                  : str,
+    'displayMode'           : displayModeEnum,
+    'state'                 : itemIconModeEnum,
+    'listItemType'          : listItemTypeEnum,
+    'IconStyle'             : IconStyle,
+    'LabelStyle'            : LabelStyle,
+    'LineStyle'             : LineStyle,
+    'PolyStyle'             : PolyStyle,
+    'BalloonStyle'          : BalloonStyle,
+    'ListStyle'             : ListStyle,
 }
