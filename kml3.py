@@ -1209,7 +1209,7 @@ class LatLonAltBox(KMLObject):
     def __str__(self):
         tmp = self.indent + '<LatLonAltBox>\n'
         tmp += super().__str__()
-        tmp += self.indent _ '</LatLonAltBox>\n'
+        tmp += self.indent + '</LatLonAltBox>\n'
         return tmp
     
 class Lod(KMLObject):
@@ -1223,7 +1223,7 @@ class Lod(KMLObject):
     def __str__(self):
         tmp = self.indent + '<Lod>\n'
         tmp += super().__str__()
-        tmp += self.indent _ '</Lod>\n'
+        tmp += self.indent + '</Lod>\n'
         return tmp
     
 class Region(KMLObject):
