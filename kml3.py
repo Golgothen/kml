@@ -629,6 +629,7 @@ class KMLObject(object):
         
         # if we make it this far, then create a new instance using value as an init argument
         tmpobj = attributeTypes[name](value)
+        logger.debug('Attribute {} of type {} appended to {}'.format(name, type(tmpobj).__name__, self.__class__.__name__))                          
         if hasattr(tmpobj, 'depth'):
             tmpobj.depth = self.__depth + 1
         super().__setattr__(name, tmpobj)                                 # Create an instance of the type passing the value to the init
@@ -650,7 +651,7 @@ class KMLObject(object):
 
 class KMLFeature(KMLObject):
     def __init__(self):
-        super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber', 'Snippet', 'time'])
+        super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber', 'Snippet', 'time', 'view'])
     
     def __str__(self):
         return super().__str__()
@@ -941,8 +942,34 @@ class GXViewerOptions(Container):
             
 class Camera(KMLObject):
     def __init__(self):
+        super().__init__(['time','viewerOptions', 'longitude', 'latitude', 'altitude', 'heading', 'tilt', 'roll', 'altitudeMode'])
             
-
+    def __str__(self):
+        tmp = self.indent + '<Camera{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</Camera{}>\n'.format(self.id)
+        return tmp
+                
+class LookAt(KMLObject):
+    def __init__(self):
+        super().__init__(['time','viewerOptions', 'longitude', 'latitude', 'altitude', 'heading', 'tilt', 'range', 'altitudeMode'])
+            
+    def __str__(self):
+        tmp = self.indent + '<LookAt{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</LookAt{}>\n'.format(self.id)
+        return tmp
+        
+class KMLView(KMLObject):
+    def __new__(self, viewertype):
+        if type(viewertype) is str:
+            if viewertype.lower() == 'camera': return Camera()
+            if viewertype.lower() == 'lookat': return LookAt()
+        logger.debug(getmro(viewertype.__class__))
+        if Camera in getmro(viewertype.__class__): return viewertype
+        if LookAt in getmro(viewertype.__class__): return viewertype
+        raise TypeError('View object must be Camera or LookAt, not {}'.format(viewertype))
+    
 
 
 
@@ -975,7 +1002,7 @@ attributeTypes = {
     'phoneNumber'           : str,
     'Snippet'               : Snippet,
     'maxLines'              : number,
-    #'View'                  : KMLView,
+    'view'                  : KMLView,
     'begin'                 : KMLDateTime,
     'end'                   : KMLDateTime,
     'when'                  : KMLDateTime,
@@ -983,4 +1010,9 @@ attributeTypes = {
     'viewerOptions'         : GXViewerOptions,
     'gx_optionName'         : viewerOptionEnum,
     'enabled'               : booleanEnum,
+    'heading'               : angle360,
+    'tilt'                  : angle180,
+    'roll'                  : angle180,
+    'altitudeMode'          : altitudeModeEnum,
+    'range'                 : number,
 }
