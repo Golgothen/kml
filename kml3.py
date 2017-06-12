@@ -695,7 +695,8 @@ class KMLFeature(KMLObject):
     def __init__(self):
         super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 
                           'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
-                          'Snippet', 'time', 'view', 'styleUrl', 'styleSelector'])
+                          'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
+                          'Region', 'Metadata', 'ExtendedData'])
     
     def __str__(self):
         return super().__str__()
@@ -1110,7 +1111,6 @@ class ItemIcon(KMLObject):
             return self.state == x
         else:
             return self.state == x.state
-    
 
 class ListStyle(Container):
     def __init__(self):
@@ -1132,7 +1132,6 @@ class Style(KMLObject):
         tmp += self.indent + '</Style>\n'
         return tmp
     
-
 class StyleMapPair(KMLObject):
     """
     Represents a singe StyleMap Key Value pair
@@ -1213,7 +1212,7 @@ class LatLonAltBox(KMLObject):
         return tmp
     
 class Lod(KMLObject):
-    def __init__(self, minLodPixels = 256, maxLodPixels = -1, minFadeExtent = 0, maxFadeExtent):
+    def __init__(self, minLodPixels = 256, maxLodPixels = -1, minFadeExtent = 0, maxFadeExtent = 0):
         super().__init__(['minLodPixels', 'maxLodPixels', 'minFadeExtent', 'maxFadeExtent'])
         self.minLodPixels = minLodPixels
         self.maxLodPixels = maxLodPixels
@@ -1321,5 +1320,7 @@ attributeTypes = {
     'maxLodPixels'          : number,
     'minFadeExtent'         : number,
     'maxFadeExtent'         : number,
+    'Region'                : Region,
+    'Lod'                   : Lod,
     
 }
