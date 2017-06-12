@@ -612,9 +612,9 @@ class KMLObject(object):
     @depth.setter
     def depth(self, value):
         self.__depth = value
-        for a in self.__dict__.items():
-            if hasattr(a, 'depth'):
-                setattr(a, 'depth', self.depth + 1)
+        for a in self.__dict__:
+            if hasattr(self.__dict__[a], 'depth'):
+                setattr(self.__dict__[a], 'depth', self.__depth + 1)
 
     def __getattribute__(self, name):
         # Pass all inbuilt functions and private attributes up to super()
@@ -662,13 +662,13 @@ class KMLObject(object):
             return
         
         # Check if we have an object of the wrong type
-        if type(value) not in [str, int, float]:
-            if KMLObject in getmro(value.__class__):
-                raise TypeError('Attribute {} must be of type {}, not {}'.format(name, attributeTypes[name].__name__, type(value).__name__))
+        #if type(value) not in [str, int, float]:
+        #    if KMLObject in getmro(value.__class__):
+        #        raise TypeError('Attribute {} must be of type {}, not {}'.format(name, attributeTypes[name].__name__, type(value).__name__))
         
         # if we make it this far, then create a new instance using value as an init argument
         tmpobj = attributeTypes[name](value)
-        logger.debug('Attribute {} of type {} appended to {}'.format(name, type(tmpobj).__name__, self.__class__.__name__))                          
+        logger.debug('Attribute {} of type {} appended to {}'.format(name, tmpobj.__class__.__name__, self.__class__.__name__))                          
         if hasattr(tmpobj, 'depth'):
             tmpobj.depth = self.__depth + 1
         super().__setattr__(name, tmpobj)                                 # Create an instance of the type passing the value to the init
@@ -695,7 +695,7 @@ class KMLFeature(KMLObject):
     def __init__(self):
         super().__init__(['name', 'description', 'visibility', 'open', 'atom_link', 
                           'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
-                          'Snippet', 'time', 'view', 'styleUrl'])
+                          'Snippet', 'time', 'view', 'styleUrl', 'styleSelector'])
     
     def __str__(self):
         return super().__str__()
@@ -1129,7 +1129,7 @@ class Style(KMLObject):
     def __str__(self):
         tmp = self.indent + '<Style{}>\n'.format(self.id)
         tmp += super().__str__()
-        tmp += self.ind + '</Style>\n'
+        tmp += self.indent + '</Style>\n'
         return tmp
     
 
@@ -1193,6 +1193,11 @@ class StyleMap(Container):
         except ValueError:
             raise ValueError('StyleMapPair {} not found in StyleMap'.format(item))
             
+class StyleSelector(KMLObject):
+    def __new__(self, obj):
+        if obj.__class__ in [Style, StyleMap]: return obj
+        raise TypeError('StyleSelector must be of type Style or StyleMap, not {}'.format(obj.__class__.__name__))
+
 
         
 
@@ -1267,4 +1272,5 @@ attributeTypes = {
     'PolyStyle'             : PolyStyle,
     'BalloonStyle'          : BalloonStyle,
     'ListStyle'             : ListStyle,
+    'styleSelector'         : StyleSelector,
 }
