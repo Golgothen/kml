@@ -526,6 +526,10 @@ class booleanEnum(Enum):
 
     def __str__(self):
         return str(self.value)
+    
+    def __bool__(self):
+        if self.value == 1: return True
+        return False
 
 class colorModeEnum(Enum):
     normal = 0
@@ -588,6 +592,20 @@ class refreshModeEnum(Enum):
     onChange = 0
     onInterval = 1
     onExpire = 2
+    
+    def __str__(self):
+        return self.name
+
+class schemaTypeEnum(Enum):
+    string = 0
+    float = 1
+    int = 2
+    double = 3
+    uint = 4
+    short = 5
+    bool = 6
+    str = 0
+    booleanEnum = 6
     
     def __str__(self):
         return self.name
@@ -1346,9 +1364,62 @@ class Region(KMLObject):
         tmp += super().__str__()
         tmp += self.indent + '</Region>\n'
         return tmp
+
+class SimpleField(KMLObject):
+    def __init__(self, name, t, displayName = None):
+        self.__permittedAttributes = ['name', 'type', 'displayName']
+        super().__init__(self.__permittedAttributes)
+
+        self.name = name
+        self.type = t
+        if displayName is not None: self.displayName = displayName
+    
+    def __str__(self):
+        tmp = self.indent + '<SimpleField type="{}" name="{}">\n'.format(self.type, self.name)
+        if self.displayName is not None:
+            tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
+        tmp += self.indent + '</SimpleField>\n'
+        return tmp
+
+class Schema(Container):
+    def __init__(self, name, id):
+        super().__init__(['name'], [SimpleField], True)
+        self.name = name
+        self.id = id
+        
+    def __str__(self):
+        tmp = self.indent + '<Schema name="{}"{}>\n'.format(self.name, self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</Schema>\n'
+        return tmp
         
 
 
+
+############################################################################
+#
+# Template class
+#
+############################################################################
+
+class Template(KMLObject):
+    def __init__(self, req_args, *args):
+        self.__req_args = 1
+        self.__permittedAttributes = ['north', 'south', 'east', 'west', 'minAltitude', 'maxAltitude', 'altitudeMode']
+        super().__init__(self.__permittedAttributes)
+
+        self.reg_arg = req_args
+
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + self.__req_args], args[a])
+
+    def __str__(self):
+        tmp = self.indent + '<Template{}>\n'.format(self.id)
+        tmp += super().__str__()
+        tmp += self.indent + '</Template>\n'
+        return tmp
+    
 
 
 
@@ -1444,5 +1515,8 @@ attributeTypes = {
     'viewBoundScale'        : number,
     'viewFormat'            : str,
     'httpQuery'             : str,
+    'type'                  : schemaTypeEnum,
+    'displayName'           : str,
+    
     
 }
