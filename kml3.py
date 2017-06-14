@@ -611,6 +611,15 @@ class schemaTypeEnum(Enum):
     def __str__(self):
         return self.name
 
+class viewRefreshModeEnum(Enum):
+    never = 0
+    onStop = 1
+    onRequest = 2
+    onRegion = 3
+    
+    def __str__(self):
+        return self.name
+
 ################################################################################################
 #                                                                                              #
 #   KML Abstract Object definitions (base classes)                                             #
@@ -734,7 +743,7 @@ class KMLFeature(KMLObject):
         self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
                                       'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
                                       'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
-                                      'Region', 'Metadata', 'ExtendedData']
+                                      'region', 'extendedData']
 
         super().__init__(self.__permittedAttributes)
         
@@ -1041,7 +1050,7 @@ class GXViewerOptions(Container):
             raise ValueError('GXViewerOption {} not found in GXViewerOptions'.format(item))
             
 class Camera(KMLObject):
-    def __init__(self):
+    def __init__(self, *args):
         self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
                                       'roll', 'altitudeMode','time','viewerOptions', ]
 
@@ -1055,11 +1064,11 @@ class Camera(KMLObject):
     def __str__(self):
         tmp = self.indent + '<Camera{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</Camera{}>\n'
+        tmp += self.indent + '</Camera>\n'
         return tmp
                 
 class LookAt(KMLObject):
-    def __init__(self):
+    def __init__(self, *args):
         self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
                                       'range', 'altitudeMode', 'time','viewerOptions']
         super().__init__(self.__permittedAttributes)
@@ -1072,7 +1081,7 @@ class LookAt(KMLObject):
     def __str__(self):
         tmp = self.indent + '<LookAt{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</LookAt{}>\n'
+        tmp += self.indent + '</LookAt>\n'
         return tmp
         
 class KMLView(KMLObject):
@@ -1250,7 +1259,7 @@ class Style(KMLObject):
             if args[a] is not None:
                 setattr(self, self.__permittedAttributes[a], args[a])
                 
-def __str__(self):
+    def __str__(self):
         tmp = self.indent + '<Style{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</Style>\n'
@@ -1457,6 +1466,41 @@ class SchemaData(Container):
             if d in self.schema:
                 self.append(SimpleData(d, data[d]))
 
+class ExtendedData(KMLObject):
+    def __init__(self, schemaData):
+        self.__req_args = 1
+        self.__permittedAttributes = ['schemaData']
+        super().__init__(self.__permittedAttributes)
+
+        self.schemaData = schemaData
+
+    def __str__(self):
+        tmp = self.indent + '<ExtendedData>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</ExtendedData>\n'
+        return tmp
+
+class Link(KMLObject):
+    def __init__(self, href, *args):
+        self.__permittedAttributes = ['href',
+                                      'refreshMode', 'refreshInterval',
+                                      'viewRefreshMode', 'viewRefreshTime',
+                                      'viewBoundScale', 'viewFormat',
+                                      'httpQuery'] 
+
+        super().__init__(self.__permittedAttributes)
+        self.href = href
+        
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + 1], args[a])
+                
+    def __str__(self):
+        tmp = self.indent + '<Link{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Link>\n'
+        return tmp
+
 
 
 ############################################################################
@@ -1581,6 +1625,8 @@ attributeTypes = {
     'displayName'           : str,
     'value'                 : str,
     'schema'                : Schema,
-    
-    
+    'extendedData'          : ExtendedData,
+    'schemaData'            : SchemaData,
+    'viewRefreshMode'       : viewRefreshModeEnum,
+    'viewRefreshTime'       : number,
 }
