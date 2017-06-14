@@ -758,11 +758,11 @@ class KMLFeature(KMLObject):
 class ATOMLink(KMLObject):
     # atom:link is a special case.  It has the link value inside the tag.  No other attributes permitted
     def __init__(self, value):
-        super().__init__(['link'])
-        self.link = value
+        super().__init__(['value'])
+        self.value = value
     
     def __str__(self):
-        return self.indent + '<atom:link href="{}" />\n'.format(self.link)
+        return self.indent + '<atom:link href="{}" />\n'.format(self.value)
     
 class ATOMAuthor(KMLObject):
     def __init__(self, name):
@@ -1501,6 +1501,100 @@ class Link(KMLObject):
         tmp += self.indent + '</Link>\n'
         return tmp
 
+class Orientation(KMLObject):
+    def __init__(self, heading, tilt, roll):
+        self.__permittedAttributes = ['heading', 'tilt', 'roll']
+        super().__init__(self.__permittedAttributes)
+
+        self.heading = heading
+        self.tilt = tilt
+        self.roll = roll
+
+    def __str__(self):
+        tmp = self.indent + '<Orientation>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Orientation>\n'
+        return tmp
+    
+class Location(KMLObject):
+    def __init__(self, longitude, latitude, altitude):
+        self.__permittedAttributes = ['longitude', 'latitude', 'altitude']
+        super().__init__(self.__permittedAttributes)
+
+        self.longitude = longitude
+        self.latitude = latitude
+        self.altitude = altitude
+
+    def __str__(self):
+        tmp = self.indent + '<Location>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Location>\n'
+        return tmp
+    
+class Scale(KMLObject):
+    def __init__(self, x, y, z):
+        self.__permittedAttributes = ['x', 'y', 'z']
+        super().__init__(self.__permittedAttributes)
+
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __str__(self):
+        tmp = self.indent + '<Scale>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Scale>\n'
+        return tmp
+
+class Alias(KMLObject):
+    def __init__(self, *args):
+        self.__permittedAttributes = ['sourceHref', 'targetHref']
+        super().__init__(self.__permittedAttributes)
+        
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a], args[a])
+
+    def __str__(self):
+        tmp = self.indent + '<Alias>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Alias>\n'
+        return tmp
+    
+    def __eq__(self, x):
+        if self.sourceHref == x.sourceHref and \
+           self.targetHref == x.targetHref:
+            return True
+        return False
+
+class ResourceMap(Container):
+    def __init__(self):
+        super().__init__([], [Alias], True)
+        
+    def __str__(self):
+        tmp = self.indent + '<ResourceMap>\n'
+        for a in range(len(self)):
+            tmp += str(self[a])
+        tmp += self.indent + '</ResourceMap>\n'
+        return tmp
+    
+class Model(KMLObject):
+    def __init__(self, *args):
+        self.__permittedAttributes = ['altitudeMode', 'location', 'orientation', 'modelScale',
+                                      'link', 'resourceMap']
+        super().__init__(self.__permittedAttributes)
+
+        self.resourceMap = ResourceMap()
+
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + self.__req_args], args[a])
+
+    def __str__(self):
+        tmp = self.indent + '<Template{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Template>\n'
+        return tmp
 
 
 ############################################################################
@@ -1546,7 +1640,7 @@ attributeTypes = {
     'description'           : str,
     'open'                  : booleanEnum,
     'atom_link'             : ATOMLink,
-    'link'                  : str,
+    'link'                  : Link,
     'atom_author'           : ATOMAuthor,
     'address'               : str,
     'xal_AddressDetails'    : str,
@@ -1629,4 +1723,14 @@ attributeTypes = {
     'schemaData'            : SchemaData,
     'viewRefreshMode'       : viewRefreshModeEnum,
     'viewRefreshTime'       : number,
+    'x'                     : number,
+    'y'                     : number,
+    'z'                     : number,
+    'sourceHref'            : str,
+    'targetHref'            : str,
+    'resourceMap'           : ResourceMap,
+    'location'              : Location,
+    'orientation'           : Orientation,
+    'modelScale'            : Scale,
+    
 }
