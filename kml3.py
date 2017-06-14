@@ -603,9 +603,10 @@ class schemaTypeEnum(Enum):
     double = 3
     uint = 4
     short = 5
-    bool = 6
+    ushort = 6
+    bool = 7
     str = 0
-    booleanEnum = 6
+    booleanEnum = 7
     
     def __str__(self):
         return self.name
@@ -620,7 +621,7 @@ class KMLObject(object):
 
     def __init__(self, permittedAttributes):
         self.__depth = 0
-        self.__permittedAttributes = ['id','depth','indent','_set_depth'] + permittedAttributes
+        self.__permittedAttributes = ['id','depth','indent','_set_depth','getID'] + permittedAttributes
         logging.debug('{} created'.format(self.__class__.__name__))
     
     @property
@@ -649,15 +650,16 @@ class KMLObject(object):
         if name not in self.__permittedAttributes:
             raise AttributeError('Attribute {} not supported by object {}'.format(name, self.__class__.__name__))
 
-        # Treat id as a special case
-        if name == 'id':
-            if 'id' in self.__dict__:
-                return ' id="{}"'.format(self.__dict__[name])   # format and return it
-            else:
-                return ''
-        
         return super().__getattribute__(name)
     
+    @property
+    def getID(self):
+        if 'id' in self.__dict__:
+            return ' id="{}"'.format(self.__dict__['id'])
+        else:
+            return ''
+        
+
     def __setattr__(self, name, value):
         if '__' in name:
             super().__setattr__(name, value)
@@ -672,7 +674,7 @@ class KMLObject(object):
         # Check if value is already of the correct type
         if type(value) is attributeTypes[name]:
             super().__setattr__(name, value)
-            logger.debug('Attribute {} of type {} with value {} appended to {}'.format(name, type(value).__name__,value,  self.__class__.__name__))                          
+            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
             if hasattr(value, 'depth'):
                 value.depth = self.__depth + 1
             return
@@ -827,7 +829,7 @@ class TimeStamp(KMLObject):
         self.when = value
     
     def __str__(self):
-        tmp = self.indent + '<TimeStamp{}>\n'.format(self.id)
+        tmp = self.indent + '<TimeStamp{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</TimeStamp>\n'
         return tmp
@@ -841,7 +843,7 @@ class TimeSpan(KMLObject):
             self.end = end
     
     def __str__(self):
-        tmp = self.indent + '<TimeSpan{}>\n'.format(self.id)
+        tmp = self.indent + '<TimeSpan{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</TimeSpan>\n'
         return tmp
@@ -1051,9 +1053,9 @@ class Camera(KMLObject):
                 setattr(self, self.__permittedAttributes[a], args[a])
                 
     def __str__(self):
-        tmp = self.indent + '<Camera{}>\n'.format(self.id)
+        tmp = self.indent + '<Camera{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</Camera{}>\n'.format(self.id)
+        tmp += self.indent + '</Camera{}>\n'
         return tmp
                 
 class LookAt(KMLObject):
@@ -1068,9 +1070,9 @@ class LookAt(KMLObject):
                 setattr(self, self.__permittedAttributes[a], args[a])
                 
     def __str__(self):
-        tmp = self.indent + '<LookAt{}>\n'.format(self.id)
+        tmp = self.indent + '<LookAt{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</LookAt{}>\n'.format(self.id)
+        tmp += self.indent + '</LookAt{}>\n'
         return tmp
         
 class KMLView(KMLObject):
@@ -1098,7 +1100,7 @@ class Icon(KMLObject):
                 setattr(self, self.__permittedAttributes[a + 1], args[a])
                 
     def __str__(self):
-        tmp = self.indent + '<Icon{}>\n'.format(self.id)
+        tmp = self.indent + '<Icon{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</Icon>\n'
         return tmp
@@ -1126,7 +1128,7 @@ class IconStyle(KMLObject):
                 
 
     def __str__(self):
-        tmp = self.indent + '<IconStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<IconStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</IconStyle>\n'
         return tmp
@@ -1143,7 +1145,7 @@ class LabelStyle(KMLObject):
                 
 
     def __str__(self):
-        tmp = self.indent + '<LabelStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<LabelStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</LabelStyle>\n'
         return tmp
@@ -1161,7 +1163,7 @@ class LineStyle(KMLObject):
                 
 
     def __str__(self):
-        tmp = self.indent + '<LineStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<LineStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</LineStyle>\n'
         return tmp
@@ -1178,7 +1180,7 @@ class PolyStyle(KMLObject):
                 
 
     def __str__(self):
-        tmp = self.indent + '<PolyStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<PolyStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</PolyStyle>\n'
         return tmp
@@ -1195,7 +1197,7 @@ class BalloonStyle(KMLObject):
                 
 
     def __str__(self):
-        tmp = self.indent + '<BalloonStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<BalloonStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</BalloonStyle>\n'
         return tmp
@@ -1226,7 +1228,7 @@ class ListStyle(Container):
         
     def __str__(self):
         if len(self) == 0: return ''
-        tmp = self.indent + '<ListStyle{}>\n'.format(self.id)
+        tmp = self.indent + '<ListStyle{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</ListStyle>\n'
         return tmp
@@ -1249,7 +1251,7 @@ class Style(KMLObject):
                 setattr(self, self.__permittedAttributes[a], args[a])
                 
 def __str__(self):
-        tmp = self.indent + '<Style{}>\n'.format(self.id)
+        tmp = self.indent + '<Style{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</Style>\n'
         return tmp
@@ -1291,7 +1293,7 @@ class StyleMap(Container):
         super().__init__([], [StyleMapPair], True)
     
     def __str__(self):
-        tmp = self.indent + '<StyleMap{}>\n'.format(self.id)
+        tmp = self.indent + '<StyleMap{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</StileMap>\n'
         return tmp
@@ -1360,7 +1362,7 @@ class Region(KMLObject):
         if Lod is not None:             self.Lod = Lod
         
     def __str__(self):
-        tmp = self.indent + '<Region{}>\n'.format(self.id)
+        tmp = self.indent + '<Region{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</Region>\n'
         return tmp
@@ -1380,19 +1382,80 @@ class SimpleField(KMLObject):
             tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
         tmp += self.indent + '</SimpleField>\n'
         return tmp
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.name == x
+        else:
+            return self.name == x.name
 
 class Schema(Container):
     def __init__(self, name, id):
-        super().__init__(['name'], [SimpleField], True)
+        super().__init__(['name', 'clone'], [SimpleField], True)
         self.name = name
         self.id = id
         
     def __str__(self):
-        tmp = self.indent + '<Schema name="{}"{}>\n'.format(self.name, self.id)
-        tmp += super().__str__()
+        tmp = self.indent + '<Schema name="{}"{}>\n'.format(self.name, self.getID)
+        for a in range(len(self)):
+            tmp += str(self[a])
         tmp += self.indent + '</Schema>\n'
         return tmp
-        
+    
+    def clone(self):
+        c = Schema(self.name, self.id)
+        for a in range(len(self)):
+            c.append(
+                SimpleField(
+                    self[a].name,
+                    self[a].type,
+                    None if not hasattr(self[a], 'displayName') else self[a].displayName
+                )
+            )
+        return c
+
+class SimpleData(KMLObject):
+    def __init__(self, name, value):
+        self.__permittedAttributes = ['name', 'value']
+        super().__init__(self.__permittedAttributes)
+
+        self.name = name
+        self.value = value
+    
+    def __str__(self):
+        return self.indent + '<SimpleData name="{}">{}</SimpleData>\n'.format(self.name, self.value)
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.name == x
+        else:
+            return self.name == x.name
+
+class SchemaData(Container):
+    def __init__(self, schema):
+        super().__init__(['schema', 'addData'], [SimpleData], True)
+        self.__schema = schema.clone()
+    
+    @property
+    def schema(self):
+        return self.__schema
+    
+    @schema.setter
+    def schema(self, value):
+        self.__schema = value.clone()
+    
+    def __str__(self):
+        tmp = self.indent + '<SchemaData schemaUrl="#{}">\n'.format(self.schema.id)
+        for a in range(len(self)):
+            tmp += str(self[a])
+        tmp += self.indent + '</SchemaData>\n'
+        return tmp
+
+    def addData(self, data):
+        #load SchemaData object with data from a dict
+        for d in data:
+            if d in self.schema:
+                self.append(SimpleData(d, data[d]))
 
 
 
@@ -1415,7 +1478,7 @@ class Template(KMLObject):
                 setattr(self, self.__permittedAttributes[a + self.__req_args], args[a])
 
     def __str__(self):
-        tmp = self.indent + '<Template{}>\n'.format(self.id)
+        tmp = self.indent + '<Template{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</Template>\n'
         return tmp
@@ -1505,7 +1568,6 @@ attributeTypes = {
     'minFadeExtent'         : number,
     'maxFadeExtent'         : number,
     'Region'                : Region,
-    'Lod'                   : Lod,
     'gx_x'                  : int,
     'gx_y'                  : int,
     'gx_h'                  : int,
@@ -1517,6 +1579,8 @@ attributeTypes = {
     'httpQuery'             : str,
     'type'                  : schemaTypeEnum,
     'displayName'           : str,
+    'value'                 : str,
+    'schema'                : Schema,
     
     
 }
