@@ -751,7 +751,6 @@ class KMLFeature(KMLObject):
             if args[a] is not None:
                 setattr(self, self.__permittedAttributes[a], args[a])
                 
-    
     def __str__(self):
         return super().__str__()
 
@@ -923,43 +922,43 @@ class Container(KMLObject, deque):
         # Flag to permit duplicate entries.  Objects should override __eq__ to control comparison between objects
         self.__unique = unique
     
+    def __validateType(self, value):
+        # Check for valid data types:
+        valid = False
+        if self.__restrictTypes:
+            # Direct type match
+            if type(value) in self.__validTypes:
+                valid =  True
+            # Check for derived types:
+            for t in self.__validTypes:
+                if t in getmro(value.__class__):
+                    valid = True
+            # Raise an error on type mismatch
+            if not valid:
+                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
+        # Check if duplicates allowed 
+        if self.__unique:
+            for i in range(len(self)):
+                if value == self[i]:
+                    # Raise error on duplicates when not allowed
+                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
+        # On success, return the value that was passed to us with an increase to depth
+        value.depth = self.depth + 1
+        return value
+                
     def _set_depth(self, value):
         super()._set_depth(value)
         for a in range(len(self)):
             self[a].depth = self.depth + 1
     
     def append(self, value):
-        if self.__restrictTypes:
-            if type(value) not in self.__validTypes:
-                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
-        if self.__unique:
-            for i in range(len(self)):
-                if value == self[i]:
-                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
-        value.depth = self.depth + 1
-        super().append(value)
+        super().append(self.__validateType(value))
 
     def appendleft(self, value):
-        if self.__restrictTypes:
-            if type(value) not in self.__validTypes:
-                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
-        if self.__unique:
-            for i in range(len(self)):
-                if value == self[i]:
-                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
-        value.depth = self.depth + 1
-        super().appendleft(value)
+        super().appendleft(self.__validateType(value))
 
     def insert(self, index, value):
-        if self.__restrictTypes:
-            if type(value) not in self.__validTypes:
-                raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
-        if self.__unique:
-            for i in range(len(self)):
-                if value == self[i]:
-                    raise ValueError('Cannot duplicate {} when container {} unique is True'.format(value.__class__.__name__, self.__class__.__name__))
-        value.depth = self.depth + 1
-        super().insert(index, value)
+        super().insert(index, self.__validateType(value))
     
     def __str__(self):
         tmp = ''
@@ -974,7 +973,7 @@ class Coordinates(Container):
     
     def __str__(self):
         if len(self) == 0: return ''
-        tmp = '<coordinates>'
+        tmp = self.indent + '<coordinates>'
         if len(self) == 1:
             tmp += str(self[0]) + '</coordinates>\n'
         else:
@@ -1089,7 +1088,7 @@ class KMLView(KMLObject):
         if type(viewertype) is str:
             if viewertype.lower() == 'camera': return Camera()
             if viewertype.lower() == 'lookat': return LookAt()
-        logger.debug(getmro(viewertype.__class__))
+        #logger.debug(getmro(viewertype.__class__))
         if Camera in getmro(viewertype.__class__): return viewertype
         if LookAt in getmro(viewertype.__class__): return viewertype
         raise TypeError('View object must be Camera or LookAt, not {}'.format(viewertype))
@@ -1578,7 +1577,215 @@ class ResourceMap(Container):
         tmp += self.indent + '</ResourceMap>\n'
         return tmp
     
-class Model(KMLObject):
+class Folder(Container):
+    def __init__(self, *args):
+        self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
+                                      'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
+                                      'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
+                                      'region', 'extendedData']
+
+        super().__init__(self.__permittedAttributes, [KMLFeature], True)
+        
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a], args[a])
+        
+    def __str__(self):
+        tmp = self.indent + '<Folder{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '<Folder>\n'
+
+class Document(Container):
+    def __init__(self, *args):
+        self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
+                                      'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
+                                      'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
+                                      'region', 'extendedData']
+
+        super().__init__(self.__permittedAttributes, [KMLFeature, Schema], False)
+        
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a], args[a])
+        
+    def __str__(self):
+        tmp = self.indent + '<Document{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '<Document>\n'
+
+#class KMLGeometry(object):
+#    # Geometry factory class
+#    def __new__(self, geometryType, *args):
+#        if type(geometryType) is str:
+#            if geometryType.lower() == 'point': return Point(*args)
+#            if geometryType.lower() == 'linestring': return LineString(*args)
+#            if geometryType.lower() == 'linearring': return LinearRing(*args)
+#            if geometryType.lower() == 'polygon': return Polygon(*args)
+#        if Geometry in getmro(geometryType.__class__): return geometryType
+#        raise TypeError('Geometry object must be Point, LineString or LookAt, not {}'.format(geometryType))
+
+class KMLGeometry(KMLObject):
+    # Inheritance placeholder class for all geometry types
+    def __init__(self, permittedAttributes):
+        self.__permittedAttributes = permittedAttributes
+        super().__init__(self.__permittedAttributes)
+
+class Point(KMLGeometry):
+    def __init__(self, *args):
+        
+        req_args = 0    # Number of required arguments
+        max_args = 5    # Maximum number of optional arguments
+        # Drop any additional argiments
+        if len(args) > max_args:
+            args = args[:max_args]
+        
+        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','extrude',
+                                      'altitudeMode','coordinates']
+        super().__init__(self.__permittedAttributes)
+
+        self.coordinates = Coordinates()
+        
+        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
+        if len(args)>=2:
+            if args[0] is not None and args[1] is not None:
+                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
+
+        for a in range(3, len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + req_args], args[a])
+
+    def __str__(self):
+        tmp = self.indent + '<Point{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Point>\n'
+        return tmp
+
+class LineString(KMLGeometry):
+    def __init__(self, *args):
+        
+        req_args = 0    # Number of required arguments
+        max_args = 8    # Maximum number of optional arguments
+        # Drop any additional argiments
+        if len(args) > max_args:
+            args = args[:max_args]
+        
+        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
+                                      'extrude', 'tessellate', 'altitudeMode', 'gx_drawOrder',
+                                      'coordinates']
+        super().__init__(self.__permittedAttributes)
+
+        self.coordinates = Coordinates()
+        #self.coordinates.depth = self.depth + 1
+        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
+        if len(args)>=2:
+            if args[0] is not None and args[1] is not None:
+                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
+
+        for a in range(3, len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + req_args], args[a])
+
+    def __str__(self):
+        tmp = self.indent + '<LineString{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</LineString>\n'
+        return tmp
+
+class LinearRing(KMLGeometry):
+    def __init__(self, *args):
+        
+        req_args = 0    # Number of required arguments
+        max_args = 7    # Maximum number of optional arguments
+        # Drop any additional argiments
+        if len(args) > max_args:
+            args = args[:max_args]
+        
+        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
+                                      'extrude', 'tessellate', 'altitudeMode', 'coordinates']
+        super().__init__(self.__permittedAttributes)
+
+        self.coordinates = Coordinates()
+        #self.coordinates.depth = self.depth + 1
+        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
+        if len(args)>=2:
+            if args[0] is not None and args[1] is not None:
+                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
+
+        for a in range(3, len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + req_args], args[a])
+
+
+    def __str__(self):
+        tmp = self.indent + '<LinearRing{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</LinearRing>\n'
+        return tmp
+
+class OuterBoundary(KMLObject):
+    def __init__(self, lr):
+                
+        self.__permittedAttributes = ['linearRing']
+        super().__init__(self.__permittedAttributes)
+        self.linearRing = lr
+
+    def __str__(self):
+        tmp = self.indent + '<outerBoundaryIs>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</outerBoundaryIs>\n'
+        return tmp
+
+class InnerBoundary(KMLObject):
+    def __init__(self, lr):
+                
+        self.__permittedAttributes = ['linearRing']
+        super().__init__(self.__permittedAttributes)
+        self.linearRing = lr
+
+    def __str__(self):
+        tmp = self.indent + '<innerBoundaryIs>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</innerBoundaryIs>\n'
+        return tmp
+
+class Polygon(KMLGeometry):
+    def __init__(self, outerBoundaryIs, *args):
+        
+        req_args = 1    # Number of required arguments
+        max_args = 4    # Maximum number of optional arguments
+        # Drop any additional argiments
+        if len(args) > max_args:
+            args = args[:max_args]
+        
+        self.__permittedAttributes = ['outerBoundaryIs', 'extrude', 'tessellate',
+                                      'altitudeMode', 'innerBoundaryIs']
+        super().__init__(self.__permittedAttributes)
+
+        self.outerBoundaryIs = outerBoundaryIs
+
+        for a in range(len(args)):
+            if args[a] is not None:
+                setattr(self, self.__permittedAttributes[a + req_args], args[a])
+
+
+    def __str__(self):
+        tmp = self.indent + '<Polygon{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Polygon>\n'
+        return tmp
+
+class MultiGeometry(Container):
+    def __init__(self):
+        self.__permittedAttributes = []
+
+        super().__init__(self.__permittedAttributes, [KMLGeometry], False)
+        
+    def __str__(self):
+        tmp = self.indent + '<MultiGeometry{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '<MultiGeometry>\n'
+
+class Model(KMLGeometry):
     def __init__(self, *args):
         self.__permittedAttributes = ['altitudeMode', 'location', 'orientation', 'modelScale',
                                       'link', 'resourceMap']
@@ -1604,16 +1811,24 @@ class Model(KMLObject):
 ############################################################################
 
 class Template(KMLObject):
-    def __init__(self, req_args, *args):
-        self.__req_args = 1
-        self.__permittedAttributes = ['north', 'south', 'east', 'west', 'minAltitude', 'maxAltitude', 'altitudeMode']
+    def __init__(self, *args):
+        
+        req_args = 0    # Number of required arguments
+        max_args = 0    # Maximum number of optional arguments
+        # Drop any additional argiments
+        if len(args) > max_args:
+            args = args[:max_args]
+        
+        self.__permittedAttributes = []
         super().__init__(self.__permittedAttributes)
 
-        self.reg_arg = req_args
+        # Create any container objects here
+        #self.coordinates = Coordinates()
+        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
 
         for a in range(len(args)):
             if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + self.__req_args], args[a])
+                setattr(self, self.__permittedAttributes[a + req_args], args[a])
 
     def __str__(self):
         tmp = self.indent + '<Template{}>\n'.format(self.getID)
@@ -1732,5 +1947,12 @@ attributeTypes = {
     'location'              : Location,
     'orientation'           : Orientation,
     'modelScale'            : Scale,
-    
+    'coordinates'           : Coordinates,
+    'extrude'               : booleanEnum,
+    'gx_altitudeOffset'     : number,
+    'tessellate'            : booleanEnum,
+    'gx_drawOrder'          : number,
+    'linearRing'            : LinearRing,
+    'outerBoundaryIs'       : OuterBoundary,
+    'innerBoundaryIs'       : InnerBoundary,
 }
