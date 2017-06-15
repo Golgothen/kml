@@ -1761,12 +1761,27 @@ class Polygon(KMLGeometry):
                                       'altitudeMode', 'innerBoundaryIs']
         super().__init__(self.__permittedAttributes)
 
-        self.outerBoundaryIs = outerBoundaryIs
+        self.outerBoundaryIs = LinearRing(outerBoundaryIs.latitude,
+                                          outerBoundaryIs.longitude,
+                                          None if not hasattr(outerBoundaryIs, 'altitude') else outerBoundaryIs.altitude,
+                                          None if not hasattr(outerBoundaryIs, 'gx_altitudeOffset') else outerBoundaryIs.gx_altitudeOffset,
+                                          None if not hasattr(outerBoundaryIs, 'extrude') else outerBoundaryIs.extrude,
+                                          None if not hasattr(outerBoundaryIs, 'tessellate') else outerBoundaryIs.tesselate,
+                                          None if not hasattr(outerBoundaryIs, 'altitudeMode') else outerBoundaryIs.altitudeMode)
 
-        for a in range(len(args)):
+        for a in range(len(args)-1):
             if args[a] is not None:
                 setattr(self, self.__permittedAttributes[a + req_args], args[a])
 
+        if len(args) == 4:
+            self.innerBoundaryIs = LinearRing(args[3].latitude,
+                                              args[3].longitude,
+                                              None if not hasattr(args[3], 'altitude') else args[3].altitude,
+                                              None if not hasattr(args[3], 'gx_altitudeOffset') else args[3].gx_altitudeOffset,
+                                              None if not hasattr(args[3], 'extrude') else args[3].extrude,
+                                              None if not hasattr(args[3], 'tessellate') else args[3].tesselate,
+                                              None if not hasattr(args[3], 'altitudeMode') else args[3].altitudeMode)
+            
 
     def __str__(self):
         tmp = self.indent + '<Polygon{}>\n'.format(self.getID)
@@ -1784,7 +1799,8 @@ class MultiGeometry(Container):
         tmp = self.indent + '<MultiGeometry{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '<MultiGeometry>\n'
-
+        return tmp
+    
 class Model(KMLGeometry):
     def __init__(self, *args):
         self.__permittedAttributes = ['altitudeMode', 'location', 'orientation', 'modelScale',
@@ -1795,7 +1811,7 @@ class Model(KMLGeometry):
 
         for a in range(len(args)):
             if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + self.__req_args], args[a])
+                setattr(self, self.__permittedAttributes[a], args[a])
 
     def __str__(self):
         tmp = self.indent + '<Template{}>\n'.format(self.getID)
