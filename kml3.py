@@ -14,6 +14,7 @@ from time import time
 from inspect import getmro
 from enum import Enum, EnumMeta
 from collections import deque
+from copy import deepcopy
 
 ################################################################################################
 #                                                                                              #
@@ -628,29 +629,15 @@ class viewRefreshModeEnum(Enum):
 
 class KMLObject(object):
 
-    def __init__(self, permittedAttributes):
+    def __init__(self, permittedAttributes, **kwargs):
         self.__depth = 0
-        self.__permittedAttributes = ['id','depth','indent','_set_depth','getID'] + permittedAttributes
+        self.__permittedAttributes = ['id','depth','indent','_set_depth','getID','clone'] + permittedAttributes
+        
+        for k in kwargs:
+            setattr(self, k, kwargs[k])
+        
         logging.debug('{} created'.format(self.__class__.__name__))
     
-    @property
-    def indent(self):
-        return ' ' * self.__depth
-
-    @property    
-    def depth(self, value = None):
-        return self.__depth
-    
-    @depth.setter
-    def depth(self, value):
-        self._set_depth(value)
-    
-    def _set_depth(self, value):
-        self.__depth = value
-        for a in self.__dict__:
-            if hasattr(self.__dict__[a], 'depth'):
-                setattr(self.__dict__[a], 'depth', self.__depth + 1)
-
     def __getattribute__(self, name):
         # Pass all inbuilt functions and private attributes up to super()
         if '__' in name:        return super().__getattribute__(name)
@@ -661,13 +648,6 @@ class KMLObject(object):
 
         return super().__getattribute__(name)
     
-    @property
-    def getID(self):
-        if 'id' in self.__dict__:
-            return ' id="{}"'.format(self.__dict__['id'])
-        else:
-            return ''
-        
 
     def __setattr__(self, name, value):
         if '__' in name:
@@ -679,6 +659,10 @@ class KMLObject(object):
         
         if name not in attributeTypes:
             raise RuntimeError('Type for attribute {} not defined'.format(name))
+
+        # If an object is passed, clone it first
+        if KMLObject in getmro(value.__class__):
+            value = deepcopy(value)
 
         # Check if value is already of the correct type
         if type(value) is attributeTypes[name]:
@@ -726,8 +710,36 @@ class KMLObject(object):
                         else:
                             tmp += self.indent + ' <{}>{}</{}>\n'.format(a,self.__dict__[a],a)
         return tmp
+    
+    @property
+    def indent(self):
+        return ' ' * self.__depth
+
+    @property    
+    def depth(self, value = None):
+        return self.__depth
+    
+    @depth.setter
+    def depth(self, value):
+        self._set_depth(value)
+    
+    def _set_depth(self, value):
+        self.__depth = value
+        for a in self.__dict__:
+            if hasattr(self.__dict__[a], 'depth'):
+                setattr(self.__dict__[a], 'depth', self.__depth + 1)
+
+    @property
+    def getID(self):
+        if 'id' in self.__dict__:
+            return ' id="{}"'.format(self.__dict__['id'])
+        else:
+            return ''
+        
 
 class altitudeMode(KMLObject):
+    # altitudeMode is slightly different as its the only enum that alters its tag based on its value
+    # Because of this, it behaves like an object rather than an attribute.
     def __init__(self, value):
         super().__init__(['altitudeModeEnum'])
         self.altitudeModeEnum = altitudeModeEnum[value]
@@ -739,24 +751,21 @@ class altitudeMode(KMLObject):
             return self.indent + '<gx:altitudeMode>{}</gx:altitudeMode>\n'.format(self.altitudeModeEnum.name)
         
 class KMLFeature(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
                                       'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
                                       'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
                                       'region', 'extendedData']
 
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
         
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
     def __str__(self):
         return super().__str__()
 
 class ATOMLink(KMLObject):
     # atom:link is a special case.  It has the link value inside the tag.  No other attributes permitted
     def __init__(self, value):
+        # String value must be given on creation
         super().__init__(['value'])
         self.value = value
     
@@ -765,6 +774,7 @@ class ATOMLink(KMLObject):
     
 class ATOMAuthor(KMLObject):
     def __init__(self, name):
+        # String value must be given on creation
         super().__init__(['name'])
         self.name = name
     
@@ -776,6 +786,7 @@ class ATOMAuthor(KMLObject):
 
 class XALAddress(KMLObject):
     def __init__(self, address):
+        # String value must be given on creation
         super().__init__(['adress'])
         self.address = address
     
@@ -783,14 +794,18 @@ class XALAddress(KMLObject):
         return self.indent + '<xal:AddressDetails>{}</xal:AddressDetails>\n'.format(self.address)
 
 class Snippet(KMLObject):
-    def __init__(self, value, maxLines = None):
-        super().__init__(['text','maxLines'])
-        self.maxLines = maxLines
-        self.text = value
-    
+    def __init__(self, **kwargs):
+        super().__init__(['text','maxLines'], **kwargs)
+        
     def __str__(self):
+        if 'text' not in self.__dict__:
+            logger.warning('Snippet has no value. No tag returned.')
+            return ''
+        if len(self.text) == 0:
+            logger.warning('Snippet has no value. No tag returned.')
+            return ''
         tmp = self.indent + '<Snippet'
-        if self.maxLines is not None:
+        if 'maxLines' in self.__dict__:
             tmp += ' maxLines="{}"'.format(self.maxLines)
         tmp += '>{}</Snippet>\n'.format(self.text)
         return tmp
@@ -871,7 +886,7 @@ class Coordinate(KMLObject):
         alt             : (number) Altitude (optional)
         
     """
-    def __init__(self, lon, lat, alt = None):
+    def __init__(self, **kwargs):
         super().__init__(['longitude', 'latitude', 'altitude'])
         self.longitude = lon
         self.latitude = lat
@@ -879,6 +894,10 @@ class Coordinate(KMLObject):
             self.altitude = alt
 
     def __str__(self):
+        if 'latitude' not in self.__dict__ or \
+           'longitude' not in self.__dict__:
+            logger.warning('Coordinate has not latitude/Longitude. No tag returned.')
+            return ''
         if hasattr(self, 'altitude'):
             return '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
         else:
@@ -1877,7 +1896,7 @@ attributeTypes = {
     'xal_AddressDetails'    : str,
     'phoneNumber'           : str,
     'Snippet'               : Snippet,
-    'maxLines'              : number,
+    'maxLines'              : int,
     'view'                  : KMLView,
     'begin'                 : KMLDateTime,
     'end'                   : KMLDateTime,
