@@ -631,7 +631,7 @@ class KMLObject(object):
 
     def __init__(self, permittedAttributes, **kwargs):
         self.__depth = 0
-        self.__permittedAttributes = ['id','depth','indent','_set_depth','getID','clone'] + permittedAttributes
+        self.__permittedAttributes = ['id','depth','indent','_set_depth','getID','checkAttributes'] + permittedAttributes
         
         for k in kwargs:
             setattr(self, k, kwargs[k])
@@ -671,6 +671,16 @@ class KMLObject(object):
             if hasattr(value, 'depth'):
                 value.depth = self.__depth + 1
             return
+
+        # Check for derived types
+        p = [x for x in getmro(value.__class__) if x.__module__ == self.__class__.__module__ and x.__name__ != 'KMLObject']
+        for o in p:
+            if o in getmro(attributeTypes[name]):
+                super().__setattr__(name, value)
+                logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
+                if hasattr(value, 'depth'):
+                    value.depth = self.__depth + 1
+                return
         
         # See if the attribute expects an Enum
         if Enum in getmro(attributeTypes[name]):
@@ -681,11 +691,11 @@ class KMLObject(object):
                 super().__setattr__(name, attributeTypes[name][value])         # Set the enum by name
             return
         
-        # Check if we have an object of the wrong type
-        #if type(value) not in [str, int, float]:
-        #    if KMLObject in getmro(value.__class__):
-        #        raise TypeError('Attribute {} must be of type {}, not {}'.format(name, attributeTypes[name].__name__, type(value).__name__))
-        
+        # Check for object of incorrect type
+        if KMLObject in getmro(value.__class__):
+            if type(value) is not attributeTypes[name]:
+                raise TypeError('Incorrect object type for {}.  Expected {}, given {}'.format(name, attributeTypes[name].__name__, value.__class__.__name__))
+            
         # if we make it this far, then create a new instance using value as an init argument
         tmpobj = attributeTypes[name](value)
         logger.debug('Attribute {} of type {} appended to {}'.format(name, tmpobj.__class__.__name__, self.__class__.__name__))                          
@@ -735,8 +745,15 @@ class KMLObject(object):
             return ' id="{}"'.format(self.__dict__['id'])
         else:
             return ''
+    
+    def checkAttributes(self, attributes):
+        attr = True
+        for a in attributes:
+            if a not in self.__dict__:
+                logger.warning('{} has missing required attribute {}. No tag returned.'.format(self.__class__.__name__, a))
+                attr = False
+        return attr
         
-
 class altitudeMode(KMLObject):
     # altitudeMode is slightly different as its the only enum that alters its tag based on its value
     # Because of this, it behaves like an object rather than an attribute.
@@ -798,17 +815,14 @@ class Snippet(KMLObject):
         super().__init__(['text','maxLines'], **kwargs)
         
     def __str__(self):
-        if 'text' not in self.__dict__:
-            logger.warning('Snippet has no value. No tag returned.')
+        if not self.checkAttributes(['text']):
             return ''
-        if len(self.text) == 0:
-            logger.warning('Snippet has no value. No tag returned.')
-            return ''
-        tmp = self.indent + '<Snippet'
-        if 'maxLines' in self.__dict__:
-            tmp += ' maxLines="{}"'.format(self.maxLines)
-        tmp += '>{}</Snippet>\n'.format(self.text)
-        return tmp
+        else:
+            tmp = self.indent + '<Snippet'
+            if 'maxLines' in self.__dict__:
+                tmp += ' maxLines="{}"'.format(self.maxLines)
+            tmp += '>{}</Snippet>\n'.format(self.text)
+            return tmp
         
 class TimePrimitive(KMLObject):
     """
@@ -887,21 +901,16 @@ class Coordinate(KMLObject):
         
     """
     def __init__(self, **kwargs):
-        super().__init__(['longitude', 'latitude', 'altitude'])
-        self.longitude = lon
-        self.latitude = lat
-        if alt is not None:
-            self.altitude = alt
+        super().__init__(['longitude', 'latitude', 'altitude'], **kwargs)
 
     def __str__(self):
-        if 'latitude' not in self.__dict__ or \
-           'longitude' not in self.__dict__:
-            logger.warning('Coordinate has not latitude/Longitude. No tag returned.')
+        if not self.checkAttributes(['latitude','longitude']):
             return ''
-        if hasattr(self, 'altitude'):
-            return '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
         else:
-            return '{},{}'.format(self.longitude, self.latitude)
+            if 'altitude' in self.__dict__:
+                return '{},{},{}'.format(self.longitude, self.latitude, self.altitude)
+            else:
+                return '{},{}'.format(self.longitude, self.latitude)
 
     def __eq__(self, x):
         if type(x) != type(self):         return False
@@ -929,10 +938,12 @@ class Container(KMLObject, deque):
                                  Optional - default is False (duplicates permitted)
     """
     
-    def __init__(self, attributes, types, unique = False):
+    def __init__(self, attributes, types, unique, **kwargs):
+        
+        
         # Add the class attributes we need for the deque object
         super().__init__(attributes + ['append', 'appendleft', 'clear', 'count', 'index',
-                                       'insert', 'pop', 'popleft', 'reverse', 'rotate'])
+                                       'insert', 'pop', 'popleft', 'reverse', 'rotate'], **kwargs)
         # List of data types permitted in this collection
         self.__restrictTypes = False
         if len(types) > 0:
@@ -941,7 +952,20 @@ class Container(KMLObject, deque):
         # Flag to permit duplicate entries.  Objects should override __eq__ to control comparison between objects
         self.__unique = unique
     
+    def __deepcopy__(self, memo):
+        obj = type(self)()
+        obj.__dict__.update(self.__dict__)
+        for o in range(len(self)):
+            obj.append(deepcopy(self[o]))
+        return obj
+        
     def __validateType(self, value):
+
+        # Allows all "add" methods to validate objects the same way
+        
+        # Clone the object first
+        value = deepcopy(value)
+
         # Check for valid data types:
         valid = False
         if self.__restrictTypes:
@@ -988,7 +1012,7 @@ class Container(KMLObject, deque):
 
 class Coordinates(Container):
     def __init__(self):
-        super().__init__([],[Coordinate])
+        super().__init__([],[Coordinate], False)
     
     def __str__(self):
         if len(self) == 0: return ''
@@ -1068,17 +1092,13 @@ class GXViewerOptions(Container):
             raise ValueError('GXViewerOption {} not found in GXViewerOptions'.format(item))
             
 class Camera(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
                                       'roll', 'altitudeMode','time','viewerOptions', ]
 
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
         self.viewerOptions = GXViewerOptions()
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+
     def __str__(self):
         tmp = self.indent + '<Camera{}>\n'.format(self.getID)
         tmp += super().__str__()
@@ -1086,10 +1106,10 @@ class Camera(KMLObject):
         return tmp
                 
 class LookAt(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
                                       'range', 'altitudeMode', 'time','viewerOptions']
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
         self.viewerOptions = GXViewerOptions()
         
         for a in range(len(args)):
@@ -1103,28 +1123,23 @@ class LookAt(KMLObject):
         return tmp
         
 class KMLView(KMLObject):
-    def __new__(self, viewertype):
+    def __new__(self, viewertype, **kwargs):
         if type(viewertype) is str:
-            if viewertype.lower() == 'camera': return Camera()
-            if viewertype.lower() == 'lookat': return LookAt()
-        #logger.debug(getmro(viewertype.__class__))
+            if viewertype.lower() == 'camera': return Camera(**kwargs)
+            if viewertype.lower() == 'lookat': return LookAt(**kwargs)
         if Camera in getmro(viewertype.__class__): return viewertype
         if LookAt in getmro(viewertype.__class__): return viewertype
         raise TypeError('View object must be Camera or LookAt, not {}'.format(viewertype))
 
 class Icon(KMLObject):
-    def __init__(self, href, *args):
+    def __init__(self, href, **kwargs):
         self.__permittedAttributes = ['href', 'gx_x', 'gx_y', 'gx_w', 'gx_h',
                                       'refreshMode', 'refreshInterval',
                                       'viewBoundScale', 'viewFormat',
                                       'httpQuery'] 
 
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
         self.href = href
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + 1], args[a])
                 
     def __str__(self):
         tmp = self.indent + '<Icon{}>\n'.format(self.getID)
@@ -1133,26 +1148,20 @@ class Icon(KMLObject):
         return tmp
 
 class HotSpot(KMLObject):
-    def __init__(self, x, y, xunits, yunits):
-        super().__init__(['x', 'y', 'xunits', 'yunits'])
-        self.x = x
-        self.y = y
-        self.xunits = xunits
-        self.yunits = yunits
-        
+    def __init__(self, **kwargs):
+        super().__init__(['x', 'y', 'xunits', 'yunits'], **kwargs)
+    
     def __str__(self):
-        return self.indent + '<hotSpot x="{}" y="{}" xunits="{}" yunits="{}"/>\n'.format(self.x, self.y, self.xunits, self.yunits)
+        if not self.checkAttributes(['x', 'y', 'xunits', 'yunits']):
+            return ''
+        else:
+            return self.indent + '<hotSpot x="{}" y="{}" xunits="{}" yunits="{}"/>\n'.format(self.x, self.y, self.xunits, self.yunits)
  
 class IconStyle(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['color', 'colorMode', 'scale', 'heading', 'icon', 'hotSpot']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<IconStyle{}>\n'.format(self.getID)
@@ -1161,15 +1170,10 @@ class IconStyle(KMLObject):
         return tmp
 
 class LabelStyle(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['color', 'colorMode', 'scale']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<LabelStyle{}>\n'.format(self.getID)
@@ -1178,16 +1182,10 @@ class LabelStyle(KMLObject):
         return tmp
 
 class LineStyle(KMLObject):
-    def __init__(self, *args):
-        
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['color', 'colorMode', 'width', 'gx_outerColor', 'gx_outerWidth',
                                       'gx_physicalWidth', 'gx_labelVisibility']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<LineStyle{}>\n'.format(self.getID)
@@ -1196,15 +1194,9 @@ class LineStyle(KMLObject):
         return tmp
 
 class PolyStyle(KMLObject):
-    def __init__(self, *args):
-        
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['color', 'colorMode', 'fill', 'outline']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<PolyStyle{}>\n'.format(self.getID)
@@ -1213,15 +1205,10 @@ class PolyStyle(KMLObject):
         return tmp
 
 class BalloonStyle(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['bgColor', 'textColor', 'text', 'displayMode']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-                
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<BalloonStyle{}>\n'.format(self.getID)
@@ -1230,16 +1217,17 @@ class BalloonStyle(KMLObject):
         return tmp
 
 class ItemIcon(KMLObject):
-    def __init__(self, state, href):
-        super().__init__(['state', 'href'])
-        self.state = state
-        self.href = href
+    def __init__(self, **kwargs):
+        super().__init__(['state', 'href'], **kwargs)
     
     def __str__(self):
-        tmp = self.indent + '<ItemIcon>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</ItemIcon>\n'
-        return tmp
+        if not self.checkAttributes(['state','href']):
+            return ''
+        else:
+            tmp = self.indent + '<ItemIcon>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</ItemIcon>\n'
+            return tmp
     
     def __eq__(self, x):
         if type(x) is str:
@@ -1248,10 +1236,8 @@ class ItemIcon(KMLObject):
             return self.state == x.state
 
 class ListStyle(Container):
-    def __init__(self, listItemType = None, bgColor = None):
-        super().__init__(['listItemType', 'bgColor'],[ItemIcon], True)
-        if listItemType is not None: self.listItemType = listItemType
-        if bgColor is not None: self.bgColor = bgColor
+    def __init__(self, **kwargs):
+        super().__init__(['listItemType', 'bgColor'],[ItemIcon], True, **kwargs)
         
     def __str__(self):
         if len(self) == 0: return ''
@@ -1259,23 +1245,20 @@ class ListStyle(Container):
         tmp += super().__str__()
         tmp += self.indent + '</ListStyle>\n'
         return tmp
-    
-    def append(self, *args):
-        if len(args) > 1:
-            tmp = ItemIcon(args[0], args[1])
-        super().append(tmp)
 
-class Style(KMLObject):
-    def __init__(self, *args):
+class StyleSelector(KMLObject):
+    # Inheritance placeholder class for all geometry types
+    def __init__(self, permittedAttributes, **kwargs):
+        self.__permittedAttributes = permittedAttributes
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+class Style(StyleSelector):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['IconStyle', 'LabelStyle', 'LineStyle',
                                       'PolyStyle', 'BalloonStyle', 'ListStyle']
 
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
         self.ListStyle = ListStyle()
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
                 
     def __str__(self):
         tmp = self.indent + '<Style{}>\n'.format(self.getID)
@@ -1298,16 +1281,17 @@ class StyleMapPair(KMLObject):
     
     Comparing StyleMapPair will only compare by key, not value. 
     """ 
-    def __init__(self, key, styleUrl = ''):
-        super().__init__(['key','styleUrl'])
-        self.key = key
-        self.styleUrl = styleUrl
+    def __init__(self, **kwargs):
+        super().__init__(['key','styleUrl'], **kwargs)
         
     def __str__(self):
-        tmp = self.indent + '<Pair>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</Pair>\n'
-        return tmp
+        if not self.checkAttributes(['key','styleUrl']):
+            return ''
+        else:
+            tmp = self.indent + '<Pair>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</Pair>\n'
+            return tmp
     
     def __eq__(self, x):
         if type(x) is str:
@@ -1315,9 +1299,9 @@ class StyleMapPair(KMLObject):
         else:
             return self.key == x.key
 
-class StyleMap(Container):
+class StyleMap(Container, StyleSelector):
     def __init__(self):
-        super().__init__([], [StyleMapPair], True)
+        super().__init__([], [StyleMapPair], True, **kwargs)
     
     def __str__(self):
         tmp = self.indent + '<StyleMap{}>\n'.format(self.getID)
@@ -1343,72 +1327,60 @@ class StyleMap(Container):
         except ValueError:
             raise ValueError('StyleMapPair {} not found in StyleMap'.format(item))
             
-class StyleSelector(KMLObject):
-    def __new__(self, obj):
-        if obj.__class__ in [Style, StyleMap]: return obj
-        raise TypeError('StyleSelector must be of type Style or StyleMap, not {}'.format(obj.__class__.__name__))
-
 class LatLonAltBox(KMLObject):
-    def __init__(self, north, south, east, west, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['north', 'south', 'east', 'west', 'minAltitude', 'maxAltitude', 'altitudeMode']
-        super().__init__(self.__permittedAttributes)
-
-        self.north = north
-        self.south = south
-        self.east = east
-        self.west = west
-
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a+4], args[a])
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<LatLonAltBox>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</LatLonAltBox>\n'
-        return tmp
+        if not self.checkAttributes(['north', 'south', 'east', 'west']):
+            return ''
+        else:
+            tmp = self.indent + '<LatLonAltBox>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</LatLonAltBox>\n'
+            return tmp
     
 class Lod(KMLObject):
-    def __init__(self, minLodPixels = 256, maxLodPixels = -1, minFadeExtent = 0, maxFadeExtent = 0):
-        super().__init__(['minLodPixels', 'maxLodPixels', 'minFadeExtent', 'maxFadeExtent'])
-        self.minLodPixels = minLodPixels
-        self.maxLodPixels = maxLodPixels
-        self.minFadeExtent = minFadeExtent
-        self.maxFadeExtent = maxFadeExtent
+    def __init__(self, **kwargs):
+        super().__init__(['minLodPixels', 'maxLodPixels', 'minFadeExtent', 'maxFadeExtent'], **kwargs)
     
     def __str__(self):
-        tmp = self.indent + '<Lod>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</Lod>\n'
-        return tmp
+        if not self.checkAttributes(['minLodPixels']):
+            return ''
+        else:
+            tmp = self.indent + '<Lod>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</Lod>\n'
+            return tmp
     
 class Region(KMLObject):
-    def __init__(self, LatLonAltBox = None, Lod = None):
-        super().__init__(['LatLonAltBox', 'Lod'])
-        if LatLonAltBox is not None:    self.LatLonAltBox = LatLonAltBox
-        if Lod is not None:             self.Lod = Lod
+    def __init__(self, **kwargs):
+        super().__init__(['LatLonAltBox', 'Lod'], **kwargs)
         
     def __str__(self):
-        tmp = self.indent + '<Region{}>\n'.format(self.getID)
-        tmp += super().__str__()
-        tmp += self.indent + '</Region>\n'
-        return tmp
+        if not self.checkAttributes(['LatLonAltBox']):
+            return ''
+        else:
+            tmp = self.indent + '<Region{}>\n'.format(self.getID)
+            tmp += super().__str__()
+            tmp += self.indent + '</Region>\n'
+            return tmp
 
 class SimpleField(KMLObject):
-    def __init__(self, name, t, displayName = None):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'type', 'displayName']
-        super().__init__(self.__permittedAttributes)
-
-        self.name = name
-        self.type = t
-        if displayName is not None: self.displayName = displayName
+        super().__init__(self.__permittedAttributes, **kwargs)
     
     def __str__(self):
-        tmp = self.indent + '<SimpleField type="{}" name="{}">\n'.format(self.type, self.name)
-        if self.displayName is not None:
-            tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
-        tmp += self.indent + '</SimpleField>\n'
-        return tmp
+        if not self.checkAttributes(['name','type']):
+            return ''
+        else:
+            tmp = self.indent + '<SimpleField type="{}" name="{}">\n'.format(self.type, self.name)
+            if self.displayName is not None:
+                tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
+            tmp += self.indent + '</SimpleField>\n'
+            return tmp
     
     def __eq__(self, x):
         if type(x) is str:
@@ -1417,40 +1389,29 @@ class SimpleField(KMLObject):
             return self.name == x.name
 
 class Schema(Container):
-    def __init__(self, name, id):
-        super().__init__(['name', 'clone'], [SimpleField], True)
-        self.name = name
-        self.id = id
+    def __init__(self, **kwargs):
+        super().__init__(['name'], [SimpleField], True, **kwargs)
         
     def __str__(self):
-        tmp = self.indent + '<Schema name="{}"{}>\n'.format(self.name, self.getID)
-        for a in range(len(self)):
-            tmp += str(self[a])
-        tmp += self.indent + '</Schema>\n'
-        return tmp
+        if not self.checkAttributes(['name','id']):
+            return ''
+        else:
+            tmp = self.indent + '<Schema name="{}"{}>\n'.format(self.name, self.getID)
+            for a in range(len(self)):
+                tmp += str(self[a])
+            tmp += self.indent + '</Schema>\n'
+            return tmp
     
-    def clone(self):
-        c = Schema(self.name, self.id)
-        for a in range(len(self)):
-            c.append(
-                SimpleField(
-                    self[a].name,
-                    self[a].type,
-                    None if not hasattr(self[a], 'displayName') else self[a].displayName
-                )
-            )
-        return c
-
 class SimpleData(KMLObject):
-    def __init__(self, name, value):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'value']
-        super().__init__(self.__permittedAttributes)
-
-        self.name = name
-        self.value = value
+        super().__init__(self.__permittedAttributes, **kwargs)
     
     def __str__(self):
-        return self.indent + '<SimpleData name="{}">{}</SimpleData>\n'.format(self.name, self.value)
+        if not self.checkAttributes(['name','value']):
+            return ''
+        else:
+            return self.indent + '<SimpleData name="{}">{}</SimpleData>\n'.format(self.name, self.value)
     
     def __eq__(self, x):
         if type(x) is str:
@@ -1459,38 +1420,29 @@ class SimpleData(KMLObject):
             return self.name == x.name
 
 class SchemaData(Container):
-    def __init__(self, schema):
-        super().__init__(['schema', 'addData'], [SimpleData], True)
-        self.__schema = schema.clone()
-    
-    @property
-    def schema(self):
-        return self.__schema
-    
-    @schema.setter
-    def schema(self, value):
-        self.__schema = value.clone()
+    def __init__(self, **kwargs):
+        super().__init__(['schema', 'addData'], [SimpleData], True, **kwargs)
     
     def __str__(self):
-        tmp = self.indent + '<SchemaData schemaUrl="#{}">\n'.format(self.schema.id)
-        for a in range(len(self)):
-            tmp += str(self[a])
-        tmp += self.indent + '</SchemaData>\n'
-        return tmp
+        if not self.checkAttributes(['schema']):
+            return ''
+        else:
+            tmp = self.indent + '<SchemaData schemaUrl="#{}">\n'.format(self.schema.id)
+            for a in range(len(self)):
+                tmp += str(self[a])
+            tmp += self.indent + '</SchemaData>\n'
+            return tmp
 
     def addData(self, data):
         #load SchemaData object with data from a dict
         for d in data:
             if d in self.schema:
-                self.append(SimpleData(d, data[d]))
+                self.append(SimpleData(name = d, value = data[d]))
 
 class ExtendedData(KMLObject):
-    def __init__(self, schemaData):
-        self.__req_args = 1
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['schemaData']
-        super().__init__(self.__permittedAttributes)
-
-        self.schemaData = schemaData
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<ExtendedData>\n'
@@ -1499,19 +1451,14 @@ class ExtendedData(KMLObject):
         return tmp
 
 class Link(KMLObject):
-    def __init__(self, href, *args):
+    def __init__(self, href, **kwargs):
         self.__permittedAttributes = ['href',
                                       'refreshMode', 'refreshInterval',
                                       'viewRefreshMode', 'viewRefreshTime',
                                       'viewBoundScale', 'viewFormat',
                                       'httpQuery'] 
 
-        super().__init__(self.__permittedAttributes)
-        self.href = href
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + 1], args[a])
+        super().__init__(self.__permittedAttributes, **kwargs)
                 
     def __str__(self):
         tmp = self.indent + '<Link{}>\n'.format(self.getID)
@@ -1520,13 +1467,9 @@ class Link(KMLObject):
         return tmp
 
 class Orientation(KMLObject):
-    def __init__(self, heading, tilt, roll):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['heading', 'tilt', 'roll']
-        super().__init__(self.__permittedAttributes)
-
-        self.heading = heading
-        self.tilt = tilt
-        self.roll = roll
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<Orientation>\n'
@@ -1535,13 +1478,9 @@ class Orientation(KMLObject):
         return tmp
     
 class Location(KMLObject):
-    def __init__(self, longitude, latitude, altitude):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['longitude', 'latitude', 'altitude']
-        super().__init__(self.__permittedAttributes)
-
-        self.longitude = longitude
-        self.latitude = latitude
-        self.altitude = altitude
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<Location>\n'
@@ -1550,13 +1489,9 @@ class Location(KMLObject):
         return tmp
     
 class Scale(KMLObject):
-    def __init__(self, x, y, z):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['x', 'y', 'z']
-        super().__init__(self.__permittedAttributes)
-
-        self.x = x
-        self.y = y
-        self.z = z
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<Scale>\n'
@@ -1565,19 +1500,18 @@ class Scale(KMLObject):
         return tmp
 
 class Alias(KMLObject):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['sourceHref', 'targetHref']
-        super().__init__(self.__permittedAttributes)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<Alias>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</Alias>\n'
-        return tmp
+        if not self.checkAttributes(['sourceHref','targetHref']):
+            return ''
+        else:
+            tmp = self.indent + '<Alias>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</Alias>\n'
+            return tmp
     
     def __eq__(self, x):
         if self.sourceHref == x.sourceHref and \
@@ -1597,82 +1531,45 @@ class ResourceMap(Container):
         return tmp
     
 class Folder(Container):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
                                       'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
                                       'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
                                       'region', 'extendedData']
 
-        super().__init__(self.__permittedAttributes, [KMLFeature], True)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-        
+        super().__init__(self.__permittedAttributes, [KMLFeature], True, **kwargs)
+
     def __str__(self):
         tmp = self.indent + '<Folder{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '<Folder>\n'
 
 class Document(Container):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
                                       'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
                                       'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
                                       'region', 'extendedData']
 
-        super().__init__(self.__permittedAttributes, [KMLFeature, Schema], False)
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
+        super().__init__(self.__permittedAttributes, [KMLFeature, Schema], False, **kwargs)
         
     def __str__(self):
         tmp = self.indent + '<Document{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '<Document>\n'
 
-#class KMLGeometry(object):
-#    # Geometry factory class
-#    def __new__(self, geometryType, *args):
-#        if type(geometryType) is str:
-#            if geometryType.lower() == 'point': return Point(*args)
-#            if geometryType.lower() == 'linestring': return LineString(*args)
-#            if geometryType.lower() == 'linearring': return LinearRing(*args)
-#            if geometryType.lower() == 'polygon': return Polygon(*args)
-#        if Geometry in getmro(geometryType.__class__): return geometryType
-#        raise TypeError('Geometry object must be Point, LineString or LookAt, not {}'.format(geometryType))
-
 class KMLGeometry(KMLObject):
     # Inheritance placeholder class for all geometry types
-    def __init__(self, permittedAttributes):
+    def __init__(self, permittedAttributes, **kwargs):
         self.__permittedAttributes = permittedAttributes
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
 
 class Point(KMLGeometry):
-    def __init__(self, *args):
-        
-        req_args = 0    # Number of required arguments
-        max_args = 5    # Maximum number of optional arguments
-        # Drop any additional argiments
-        if len(args) > max_args:
-            args = args[:max_args]
-        
-        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','extrude',
-                                      'altitudeMode','coordinates']
-        super().__init__(self.__permittedAttributes)
-
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['extrude', 'altitudeMode', 'coordinates']
+        super().__init__(self.__permittedAttributes, **kwargs)
         self.coordinates = Coordinates()
         
-        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
-        if len(args)>=2:
-            if args[0] is not None and args[1] is not None:
-                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
-
-        for a in range(3, len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + req_args], args[a])
-
     def __str__(self):
         tmp = self.indent + '<Point{}>\n'.format(self.getID)
         tmp += super().__str__()
@@ -1680,29 +1577,13 @@ class Point(KMLGeometry):
         return tmp
 
 class LineString(KMLGeometry):
-    def __init__(self, *args):
-        
-        req_args = 0    # Number of required arguments
-        max_args = 8    # Maximum number of optional arguments
-        # Drop any additional argiments
-        if len(args) > max_args:
-            args = args[:max_args]
-        
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
                                       'extrude', 'tessellate', 'altitudeMode', 'gx_drawOrder',
                                       'coordinates']
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
 
         self.coordinates = Coordinates()
-        #self.coordinates.depth = self.depth + 1
-        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
-        if len(args)>=2:
-            if args[0] is not None and args[1] is not None:
-                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
-
-        for a in range(3, len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + req_args], args[a])
 
     def __str__(self):
         tmp = self.indent + '<LineString{}>\n'.format(self.getID)
@@ -1711,29 +1592,10 @@ class LineString(KMLGeometry):
         return tmp
 
 class LinearRing(KMLGeometry):
-    def __init__(self, *args):
-        
-        req_args = 0    # Number of required arguments
-        max_args = 7    # Maximum number of optional arguments
-        # Drop any additional argiments
-        if len(args) > max_args:
-            args = args[:max_args]
-        
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
                                       'extrude', 'tessellate', 'altitudeMode', 'coordinates']
-        super().__init__(self.__permittedAttributes)
-
-        self.coordinates = Coordinates()
-        #self.coordinates.depth = self.depth + 1
-        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
-        if len(args)>=2:
-            if args[0] is not None and args[1] is not None:
-                self.coordinates.append(Coordinate(args[0], args[1], None if len(args) == 2 else args[2]))
-
-        for a in range(3, len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + req_args], args[a])
-
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<LinearRing{}>\n'.format(self.getID)
@@ -1742,71 +1604,50 @@ class LinearRing(KMLGeometry):
         return tmp
 
 class OuterBoundary(KMLObject):
-    def __init__(self, lr):
+    def __init__(self, **kwargs):
                 
         self.__permittedAttributes = ['linearRing']
-        super().__init__(self.__permittedAttributes)
-        self.linearRing = lr
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<outerBoundaryIs>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</outerBoundaryIs>\n'
-        return tmp
+        if not self.checkAttributes(['linearRing']):
+            return ''
+        else:
+            tmp = self.indent + '<outerBoundaryIs>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</outerBoundaryIs>\n'
+            return tmp
 
 class InnerBoundary(KMLObject):
-    def __init__(self, lr):
+    def __init__(self, **kwargs):
                 
         self.__permittedAttributes = ['linearRing']
-        super().__init__(self.__permittedAttributes)
-        self.linearRing = lr
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<innerBoundaryIs>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</innerBoundaryIs>\n'
-        return tmp
+        if not self.checkAttributes(['linearRing']):
+            return ''
+        else:
+            tmp = self.indent + '<innerBoundaryIs>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</innerBoundaryIs>\n'
+            return tmp
 
 class Polygon(KMLGeometry):
-    def __init__(self, outerBoundaryIs, *args):
-        
-        req_args = 1    # Number of required arguments
-        max_args = 4    # Maximum number of optional arguments
-        # Drop any additional argiments
-        if len(args) > max_args:
-            args = args[:max_args]
+    def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['outerBoundaryIs', 'extrude', 'tessellate',
                                       'altitudeMode', 'innerBoundaryIs']
-        super().__init__(self.__permittedAttributes)
-
-        self.outerBoundaryIs = LinearRing(outerBoundaryIs.latitude,
-                                          outerBoundaryIs.longitude,
-                                          None if not hasattr(outerBoundaryIs, 'altitude') else outerBoundaryIs.altitude,
-                                          None if not hasattr(outerBoundaryIs, 'gx_altitudeOffset') else outerBoundaryIs.gx_altitudeOffset,
-                                          None if not hasattr(outerBoundaryIs, 'extrude') else outerBoundaryIs.extrude,
-                                          None if not hasattr(outerBoundaryIs, 'tessellate') else outerBoundaryIs.tesselate,
-                                          None if not hasattr(outerBoundaryIs, 'altitudeMode') else outerBoundaryIs.altitudeMode)
-
-        for a in range(len(args)-1):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + req_args], args[a])
-
-        if len(args) == 4:
-            self.innerBoundaryIs = LinearRing(args[3].latitude,
-                                              args[3].longitude,
-                                              None if not hasattr(args[3], 'altitude') else args[3].altitude,
-                                              None if not hasattr(args[3], 'gx_altitudeOffset') else args[3].gx_altitudeOffset,
-                                              None if not hasattr(args[3], 'extrude') else args[3].extrude,
-                                              None if not hasattr(args[3], 'tessellate') else args[3].tesselate,
-                                              None if not hasattr(args[3], 'altitudeMode') else args[3].altitudeMode)
-            
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<Polygon{}>\n'.format(self.getID)
-        tmp += super().__str__()
-        tmp += self.indent + '</Polygon>\n'
-        return tmp
+        if not self.checkAttributes(['outerBoundaryIs']):
+            return ''
+        else:
+            tmp = self.indent + '<Polygon{}>\n'.format(self.getID)
+            tmp += super().__str__()
+            tmp += self.indent + '</Polygon>\n'
+            return tmp
 
 class MultiGeometry(Container):
     def __init__(self):
@@ -1821,21 +1662,17 @@ class MultiGeometry(Container):
         return tmp
     
 class Model(KMLGeometry):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['altitudeMode', 'location', 'orientation', 'modelScale',
                                       'link', 'resourceMap']
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
 
         self.resourceMap = ResourceMap()
 
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
-
     def __str__(self):
-        tmp = self.indent + '<Template{}>\n'.format(self.getID)
+        tmp = self.indent + '<Model{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</Template>\n'
+        tmp += self.indent + '</Model>\n'
         return tmp
 
 
@@ -1955,7 +1792,7 @@ attributeTypes = {
     'maxLodPixels'          : number,
     'minFadeExtent'         : number,
     'maxFadeExtent'         : number,
-    'Region'                : Region,
+    'region'                : Region,
     'gx_x'                  : int,
     'gx_y'                  : int,
     'gx_h'                  : int,
