@@ -408,7 +408,6 @@ class KMLDateTime(object):
                     dateparts = value[:7].split('-')
                     if number.isInt(dateparts[0]) and number.isInt(dateparts[1]):
                         value = datetime.strptime(dateparts[0] + dateparts[1] + '01', '%Y%m%d')
-                        logging.debug(value)
                     else:
                         raise ValueError('Invalid year-month {}'.format(value[:7]))
                 elif self.format == 'date':
@@ -767,6 +766,28 @@ class altitudeMode(KMLObject):
         else:
             return self.indent + '<gx:altitudeMode>{}</gx:altitudeMode>\n'.format(self.altitudeModeEnum.name)
         
+class Orientation(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['heading', 'tilt', 'roll']
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+    def __str__(self):
+        tmp = self.indent + '<Orientation>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Orientation>\n'
+        return tmp
+    
+class Location(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['longitude', 'latitude', 'altitude']
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+    def __str__(self):
+        tmp = self.indent + '<Location>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</Location>\n'
+        return tmp
+    
 class KMLFeature(KMLObject):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
@@ -1068,6 +1089,8 @@ class GXViewerOptions(Container):
         super().__init__(['seek'], [GXViewerOption], True)
 
     def __str__(self):
+        if len(self) == 0:
+            return ''
         tmp = self.indent + '<gx:ViewerOptions>\n'
         tmp += super().__str__()
         tmp += self.indent + '</gx:ViewerOptions>\n'
@@ -1091,13 +1114,19 @@ class GXViewerOptions(Container):
         except ValueError:
             raise ValueError('GXViewerOption {} not found in GXViewerOptions'.format(item))
             
-class Camera(KMLObject):
-    def __init__(self, **kwargs):
-        self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
-                                      'roll', 'altitudeMode','time','viewerOptions', ]
-
+class KMLView(KMLObject):
+    # Inheritance placeholder class for all View types
+    def __init__(self, permittedAttributes, **kwargs):
+        self.__permittedAttributes = ['longitude', 'latitude', 'altitude','altitudeMode', 'time',
+                                      'viewerOptions', 'heading', 'tilt'] + permittedAttributes
         super().__init__(self.__permittedAttributes, **kwargs)
-        self.viewerOptions = GXViewerOptions()
+        if 'viewerOptions' not in self.__dict__:
+            self.viewerOptions = GXViewerOptions()
+        
+class Camera(KMLView):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['roll']
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<Camera{}>\n'.format(self.getID)
@@ -1105,16 +1134,10 @@ class Camera(KMLObject):
         tmp += self.indent + '</Camera>\n'
         return tmp
                 
-class LookAt(KMLObject):
+class LookAt(KMLView):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['longitude', 'latitude', 'altitude', 'heading', 'tilt',
-                                      'range', 'altitudeMode', 'time','viewerOptions']
+        self.__permittedAttributes = ['range']
         super().__init__(self.__permittedAttributes, **kwargs)
-        self.viewerOptions = GXViewerOptions()
-        
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a], args[a])
                 
     def __str__(self):
         tmp = self.indent + '<LookAt{}>\n'.format(self.getID)
@@ -1122,30 +1145,22 @@ class LookAt(KMLObject):
         tmp += self.indent + '</LookAt>\n'
         return tmp
         
-class KMLView(KMLObject):
-    def __new__(self, viewertype, **kwargs):
-        if type(viewertype) is str:
-            if viewertype.lower() == 'camera': return Camera(**kwargs)
-            if viewertype.lower() == 'lookat': return LookAt(**kwargs)
-        if Camera in getmro(viewertype.__class__): return viewertype
-        if LookAt in getmro(viewertype.__class__): return viewertype
-        raise TypeError('View object must be Camera or LookAt, not {}'.format(viewertype))
-
 class Icon(KMLObject):
-    def __init__(self, href, **kwargs):
+    def __init__(self, **kwargs):
         self.__permittedAttributes = ['href', 'gx_x', 'gx_y', 'gx_w', 'gx_h',
                                       'refreshMode', 'refreshInterval',
                                       'viewBoundScale', 'viewFormat',
                                       'httpQuery'] 
-
         super().__init__(self.__permittedAttributes, **kwargs)
-        self.href = href
                 
     def __str__(self):
-        tmp = self.indent + '<Icon{}>\n'.format(self.getID)
-        tmp += super().__str__()
-        tmp += self.indent + '</Icon>\n'
-        return tmp
+        if not self.checkAttributes(['href']):
+            return ''
+        else:
+            tmp = self.indent + '<Icon{}>\n'.format(self.getID)
+            tmp += super().__str__()
+            tmp += self.indent + '</Icon>\n'
+            return tmp
 
 class HotSpot(KMLObject):
     def __init__(self, **kwargs):
@@ -1258,7 +1273,8 @@ class Style(StyleSelector):
                                       'PolyStyle', 'BalloonStyle', 'ListStyle']
 
         super().__init__(self.__permittedAttributes, **kwargs)
-        self.ListStyle = ListStyle()
+        if 'ListStyle' not in self.__dict__:
+            self.ListStyle = ListStyle()
                 
     def __str__(self):
         tmp = self.indent + '<Style{}>\n'.format(self.getID)
@@ -1466,28 +1482,6 @@ class Link(KMLObject):
         tmp += self.indent + '</Link>\n'
         return tmp
 
-class Orientation(KMLObject):
-    def __init__(self, **kwargs):
-        self.__permittedAttributes = ['heading', 'tilt', 'roll']
-        super().__init__(self.__permittedAttributes, **kwargs)
-
-    def __str__(self):
-        tmp = self.indent + '<Orientation>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</Orientation>\n'
-        return tmp
-    
-class Location(KMLObject):
-    def __init__(self, **kwargs):
-        self.__permittedAttributes = ['longitude', 'latitude', 'altitude']
-        super().__init__(self.__permittedAttributes, **kwargs)
-
-    def __str__(self):
-        tmp = self.indent + '<Location>\n'
-        tmp += super().__str__()
-        tmp += self.indent + '</Location>\n'
-        return tmp
-    
 class Scale(KMLObject):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['x', 'y', 'z']
@@ -1568,7 +1562,8 @@ class Point(KMLGeometry):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['extrude', 'altitudeMode', 'coordinates']
         super().__init__(self.__permittedAttributes, **kwargs)
-        self.coordinates = Coordinates()
+        if 'coordinates' not in self.__dict__:
+            self.coordinates = Coordinates()
         
     def __str__(self):
         tmp = self.indent + '<Point{}>\n'.format(self.getID)
@@ -1578,12 +1573,11 @@ class Point(KMLGeometry):
 
 class LineString(KMLGeometry):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
-                                      'extrude', 'tessellate', 'altitudeMode', 'gx_drawOrder',
-                                      'coordinates']
+        self.__permittedAttributes = ['gx_altitudeOffset', 'extrude', 'tessellate',
+                                      'altitudeMode', 'gx_drawOrder', 'coordinates']
         super().__init__(self.__permittedAttributes, **kwargs)
-
-        self.coordinates = Coordinates()
+        if 'coordinates' not in self.__dict__:
+            self.coordinates = Coordinates()
 
     def __str__(self):
         tmp = self.indent + '<LineString{}>\n'.format(self.getID)
@@ -1593,9 +1587,10 @@ class LineString(KMLGeometry):
 
 class LinearRing(KMLGeometry):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['latitude', 'longitude', 'altitude','gx_altitudeOffset',
-                                      'extrude', 'tessellate', 'altitudeMode', 'coordinates']
+        self.__permittedAttributes = ['gx_altitudeOffset', 'extrude', 'tessellate', 'altitudeMode', 'coordinates']
         super().__init__(self.__permittedAttributes, **kwargs)
+        if 'coordinates' not in self.__dict__:
+            self.coordinates = Coordinates()
 
     def __str__(self):
         tmp = self.indent + '<LinearRing{}>\n'.format(self.getID)
