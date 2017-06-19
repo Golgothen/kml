@@ -1404,9 +1404,30 @@ class SimpleField(KMLObject):
         else:
             return self.name == x.name
 
+class SimpleArrayField(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['name', 'type', 'displayName']
+        super().__init__(self.__permittedAttributes, **kwargs)
+    
+    def __str__(self):
+        if not self.checkAttributes(['name','type']):
+            return ''
+        else:
+            tmp = self.indent + '<gx:SimpleArrayField type="{}" name="{}">\n'.format(self.type, self.name)
+            if self.displayName is not None:
+                tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
+            tmp += self.indent + '</gx:SimpleArrayField>\n'
+            return tmp
+    
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.name == x
+        else:
+            return self.name == x.name
+
 class Schema(Container):
     def __init__(self, **kwargs):
-        super().__init__(['name'], [SimpleField], True, **kwargs)
+        super().__init__(['name'], [SimpleField, SimpleArrayField], True, **kwargs)
         
     def __str__(self):
         if not self.checkAttributes(['name','id']):
@@ -1437,7 +1458,7 @@ class SimpleData(KMLObject):
 
 class SchemaData(Container):
     def __init__(self, **kwargs):
-        super().__init__(['schema', 'addData'], [SimpleData], True, **kwargs)
+        super().__init__(['schema', 'addData'], [SimpleData, SimpleArray], True, **kwargs)
     
     def __str__(self):
         if not self.checkAttributes(['schema']):
@@ -1455,6 +1476,38 @@ class SchemaData(Container):
             if d in self.schema:
                 self.append(SimpleData(name = d, value = data[d]))
 
+class SimpleArrayData(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['value']
+        super().__init__(self.__permittedAttributes, **kwargs)
+    
+    def __str__(self):
+        if not self.checkAttributes(['value']):
+            return ''
+        else:
+            return self.indent + '<gx:value>{}</gx:value>\n'.format(self.value)
+
+
+class SimpleArray(Container):
+    def __init__(self, **kwargs):
+        super().__init__(['name', 'addData'], [SimpleArrayData], False, **kwargs)
+    
+    def __str__(self):
+        if not self.checkAttributes(['name']):
+            return ''
+        else:
+            tmp = self.indent + '<gx:SimpleArrayData name="{}">\n'.format(self.name)
+            for a in range(len(self)):
+                tmp += str(self[a])
+            tmp += self.indent + '</gx:SimpleArrayData>\n'
+            return tmp
+
+    def __eq__(self, x):
+        if type(x) is str:
+            return self.name == x
+        else:
+            return self.name == x.name
+    
 class ExtendedData(KMLObject):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['schemaData']
