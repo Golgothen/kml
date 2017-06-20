@@ -1776,6 +1776,18 @@ class Model(KMLGeometry):
         tmp += self.indent + '</Model>\n'
         return tmp
 
+class Track(Container):
+    def __init__(self):
+        self.__permittedAttributes = ['extendedData', 'schema', 'timeField', 'coordFields']
+
+        super().__init__(self.__permittedAttributes, [TimeStamp, GXCoord], False)
+        
+    def __str__(self):
+        tmp = self.indent + '<gx:Track>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:Track>\n'
+        return tmp
+    
 
 ############################################################################
 #
