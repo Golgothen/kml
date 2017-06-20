@@ -666,7 +666,7 @@ class KMLObject(object):
         # Check if value is already of the correct type
         if type(value) is attributeTypes[name]:
             super().__setattr__(name, value)
-            logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
+            #logger.debug('Attribute {} of type {} appended to {}'.format(name, type(value).__name__, self.__class__.__name__))                          
             if hasattr(value, 'depth'):
                 value.depth = self.__depth + 1
             return
@@ -1393,7 +1393,7 @@ class SimpleField(KMLObject):
             return ''
         else:
             tmp = self.indent + '<SimpleField type="{}" name="{}">\n'.format(self.type, self.name)
-            if self.displayName is not None:
+            if 'displayName' in self.__dict__:
                 tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
             tmp += self.indent + '</SimpleField>\n'
             return tmp
@@ -1414,7 +1414,7 @@ class SimpleArrayField(KMLObject):
             return ''
         else:
             tmp = self.indent + '<gx:SimpleArrayField type="{}" name="{}">\n'.format(self.type, self.name)
-            if self.displayName is not None:
+            if 'displayName' in self.__dict__:
                 tmp += self.indent + ' <displayName>{}</displayName>\n'.format(self.displayName)
             tmp += self.indent + '</gx:SimpleArrayField>\n'
             return tmp
@@ -1427,8 +1427,8 @@ class SimpleArrayField(KMLObject):
 
 class Schema(Container):
     def __init__(self, **kwargs):
-        super().__init__(['name'], [SimpleField, SimpleArrayField], True, **kwargs)
-        
+        super().__init__(['name','loadFromCSV','csvFile','csvparams'], [SimpleField, SimpleArrayField], True, **kwargs)
+
     def __str__(self):
         if not self.checkAttributes(['name','id']):
             return ''
@@ -1438,6 +1438,20 @@ class Schema(Container):
                 tmp += str(self[a])
             tmp += self.indent + '</Schema>\n'
             return tmp
+    
+    def loadFromCSV(self, file, fieldlist = [], **fmtparams):
+        import csv
+        with open(file, newline = '') as csvfile:
+            reader = csv.reader(csvfile, **fmtparams)
+            headings = next(reader)
+        if len(fieldlist)>0:
+            fields = [x for x in headings if x in fieldlist]
+        else:
+            fields = headings
+        for f in fields:
+            self.append(SimpleArrayField(name = f, type = 'string'))
+        self.csvFile = file
+        self.csvparams = fmtparams
     
 class SimpleData(KMLObject):
     def __init__(self, **kwargs):
@@ -1458,8 +1472,30 @@ class SimpleData(KMLObject):
 
 class SchemaData(Container):
     def __init__(self, **kwargs):
-        super().__init__(['schema', 'addData'], [SimpleData, SimpleArray], True, **kwargs)
+        super().__init__(['schema', 'addData', 'loadData', 'autoload'], [SimpleData, SimpleArray], True, **kwargs)
+        
+        # Automatically create SimpleArray objects for each SimpleArrayField defined in the given schema
+        if 'schema' in self.__dict__:
+            for i in range(len(self.schema)):
+                if type(self.schema[i]) is SimpleArrayField:
+                    self.append(SimpleArray(name = self.schema[i].name))
+        
+        if 'autoload' in self.__dict__:
+            if self.autoload:
+                self.loadData()
     
+    def loadData(self):
+        if 'schema' in self.__dict__:
+            if 'csvFile' in self.schema.__dict__:
+                import csv
+                fields = [x.name for x in self]
+                with open(self.schema.csvFile, newline = '') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    for row in reader:
+                        for i in range(len(self.schema)):
+                            self[i].append(SimpleArrayData(value = row[self[i].name]))
+                        
+        
     def __str__(self):
         if not self.checkAttributes(['schema']):
             return ''
@@ -1476,6 +1512,24 @@ class SchemaData(Container):
             if d in self.schema:
                 self.append(SimpleData(name = d, value = data[d]))
 
+    def append(self, value):
+        if value.name in self.schema:
+            super().append(value)
+        else:
+            raise KeyError('Field {} not found in schema {}'.format(value.name, self.schema.id))
+
+    def appendleft(self, value):
+        if value.name in self.schema:
+            super().appendleft(value)
+        else:
+            raise KeyError('Field {} not found in schema {}'.format(value.name, self.schema.id))
+
+    def insert(self, index, value):
+        if value.name in self.schema:
+            super().insert(index, value)
+        else:
+            raise KeyError('Field {} not found in schema {}'.format(value.name, self.schema.id))
+        
 class SimpleArrayData(KMLObject):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['value']
@@ -1486,7 +1540,6 @@ class SimpleArrayData(KMLObject):
             return ''
         else:
             return self.indent + '<gx:value>{}</gx:value>\n'.format(self.value)
-
 
 class SimpleArray(Container):
     def __init__(self, **kwargs):
@@ -1875,4 +1928,7 @@ attributeTypes = {
     'linearRing'            : LinearRing,
     'outerBoundaryIs'       : OuterBoundary,
     'innerBoundaryIs'       : InnerBoundary,
+    'csvFile'               : str,
+    'csvparams'             : dict,
+    'autoload'              : bool,
 }
