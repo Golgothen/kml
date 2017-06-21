@@ -1776,11 +1776,61 @@ class Model(KMLGeometry):
         tmp += self.indent + '</Model>\n'
         return tmp
 
-class Track(Container):
-    def __init__(self):
-        self.__permittedAttributes = ['extendedData', 'schema', 'timeField', 'coordFields']
+class GXCoord(KMLObject):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['latitude', 'longitude', 'altitude']
+        super().__init__(self.__permittedAttributes)
 
-        super().__init__(self.__permittedAttributes, [TimeStamp, GXCoord], False)
+    def __str__(self):
+        tmp = self.indent + '<gx:coord>'
+        if 'longitude' in self.__dict__ and \
+           'latitude' in self.__dict__:
+            if self.longitude is not None and \
+               self.latitude is not None:
+                tmp += '{} {}'.format(self.longitude, self.latitude)
+                if 'altitude' in self.__dict__:
+                    tmp += ' {}'.format(self.altitude)
+        tmp += '</gx:coord>\n'
+        return tmp
+    
+class Track(Container):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['extendedData', 'schema', 'timeField',
+                                      'coordFields', 'loadCSV']
+        super().__init__(self.__permittedAttributes, [TimeStamp, GXCoord], False, **kwargs)
+        
+        if 'autoload' in self.__dict__:
+            if self.autoload:
+                self.loadCSV()
+    
+    def loadCSV(self):
+        if 'timeField' not in self.__dict__:
+            raise ValueError('Time field must be set')
+        if 'coordFields' not in self.__dict__:
+            raise ValueError('Coord fields must be set')
+        if 'schema' in self.__dict__:
+            if 'csvFile' in self.schema.__dict__:
+                self.extendedData = ExtendedData(schemaData = SchemaData(schema = self.schema, autoload = False))
+                # Delete time and coord data from the SchemaData as they are stored in the track
+                if self.timeField in self.extendedData.schemaData:
+                    del self.extendedData.schemaData[self.extendedData.schemaData.index(self.timeField)]
+                for c in self.coordFields:
+                    if c in self.extendedData.schemaData:
+                        del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
+                
+                import csv
+                with open(self.schema.csvFile, newline = '') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    for row in reader:
+                        for i in range(len(self.extendedData.schemaData)):
+                            self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
+                        self.append(TimeStamp(row[self.timeField]))
+                        self.append(GXCoords(longitude = row[self.coordFields[0]],
+                                             latitude = row[self.coordFields[1]],
+                                             altitude = None if len(self.coordFields) == 2 else row[self.coordFields[2]]
+                                             )
+                                    )
         
     def __str__(self):
         tmp = self.indent + '<gx:Track>\n'
@@ -1796,24 +1846,10 @@ class Track(Container):
 ############################################################################
 
 class Template(KMLObject):
-    def __init__(self, *args):
-        
-        req_args = 0    # Number of required arguments
-        max_args = 0    # Maximum number of optional arguments
-        # Drop any additional argiments
-        if len(args) > max_args:
-            args = args[:max_args]
+    def __init__(self, **kwargs):
         
         self.__permittedAttributes = []
         super().__init__(self.__permittedAttributes)
-
-        # Create any container objects here
-        #self.coordinates = Coordinates()
-        # If latitude and longitude are supplied, create a coordinate and append it to coordinates
-
-        for a in range(len(args)):
-            if args[a] is not None:
-                setattr(self, self.__permittedAttributes[a + req_args], args[a])
 
     def __str__(self):
         tmp = self.indent + '<Template{}>\n'.format(self.getID)
@@ -1943,4 +1979,6 @@ attributeTypes = {
     'csvFile'               : str,
     'csvparams'             : dict,
     'autoload'              : bool,
+    'timeField'             : str,
+    'coordFields'           : list,
 }
