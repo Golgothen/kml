@@ -360,7 +360,7 @@ class KMLDateTime(object):
         self.__value = None
         self.__format = None
         self.value = value
-        self.__precision = 4
+        #self.__precision = 4
 
     @property
     def value(self):
@@ -376,13 +376,13 @@ class KMLDateTime(object):
             https://developers.google.com/kml/documentation/kmlreference#timestamp
             
         """
-        if self.__format in ['Y', 'gYear']:
+        if self.__format in ['gYear']:
             return '{:04}'.format(self.__value.year)
-        if self.__format in ['YM', 'gYearMonth']:
+        if self.__format in ['gYearMonth']:
             return '{:04}-{:02}'.format(self.__value.year, self.__value.month)
-        if self.__format in ['YMD', 'date']:
+        if self.__format in ['date']:
             return '{:04}-{:02}-{:02}'.format(self.__value.year, self.__value.month, self.__value.day)
-        if self.__format in ['Z', 'dateTime']:  
+        if self.__format in ['dateTime']:  
             return self.__value.isoformat().split('.')[0] + 'Z'
         if self.__format in ['UTC']:  # TODO: Is there a name for this format in the XML Schema?
             d = datetime.now() - datetime.utcnow()
@@ -392,6 +392,10 @@ class KMLDateTime(object):
     @value.setter
     def value(self, value):
         if value is not None:
+            if type(value) is datetime:
+                self.__value = value
+                self.__format = 'dateTime'
+                return
             if type(value) is str:
                 self.format = self.__getFormat(value)
                 # Convert strings to date based in value of format
@@ -1794,10 +1798,13 @@ class GXCoord(KMLObject):
         tmp += '</gx:coord>\n'
         return tmp
     
-class Track(Container):
+class Track(KMLObject):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['extendedData', 'schema', 'timeField',
-                                      'coordFields', 'loadCSV']
+        self.__permittedAttributes = ['extendedData', 'schema', 'timeCollection', 'timeField',
+                                      'timeFormat', 'coordCollection', 'coordFields', 'loadCSV']
+        self.timeCollection = Container([],[KMLDateTime], False)
+        self.coordCollection = Container([], [GXCoords], False)
+        
         super().__init__(self.__permittedAttributes, [TimeStamp, GXCoord], False, **kwargs)
         
         if 'autoload' in self.__dict__:
@@ -1825,11 +1832,14 @@ class Track(Container):
                     for row in reader:
                         for i in range(len(self.extendedData.schemaData)):
                             self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
-                        self.append(TimeStamp(row[self.timeField]))
-                        self.append(GXCoords(longitude = row[self.coordFields[0]],
-                                             latitude = row[self.coordFields[1]],
-                                             altitude = None if len(self.coordFields) == 2 else row[self.coordFields[2]]
-                                             )
+                        if 'timeFormat' in self.__dict__:
+                            self.append(TimeStamp(datetime.strptime(row[self.timeField], self.timeFormat)))
+                        else:
+                            self.append(TimeStamp(row[self.timeField]))
+                        self.append(GXCoord(longitude = row[self.coordFields[0]],
+                                            latitude = row[self.coordFields[1]],
+                                            altitude = None if len(self.coordFields) == 2 else row[self.coordFields[2]]
+                                            )
                                     )
         
     def __str__(self):
@@ -1981,4 +1991,5 @@ attributeTypes = {
     'autoload'              : bool,
     'timeField'             : str,
     'coordFields'           : list,
+    'timeFormat'            : str,
 }
