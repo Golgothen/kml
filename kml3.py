@@ -1784,10 +1784,10 @@ class GXCoord(KMLObject):
     def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['latitude', 'longitude', 'altitude']
-        super().__init__(self.__permittedAttributes)
+        super().__init__(self.__permittedAttributes, **kwargs)
 
     def __str__(self):
-        tmp = self.indent + '<gx:coord>'
+        tmp = '<gx:coord>'
         if 'longitude' in self.__dict__ and \
            'latitude' in self.__dict__:
             if self.longitude is not None and \
@@ -1797,15 +1797,37 @@ class GXCoord(KMLObject):
                     tmp += ' {}'.format(self.altitude)
         tmp += '</gx:coord>\n'
         return tmp
+
+class TrackTimes(Container):
+    def __init__(self):
+        self.__permittedAttributes = []
+        super().__init__(self.__permittedAttributes, [KMLDateTime], False)
     
+    def __str__(self):
+        tmp = ''
+        for i in range(len(self)):
+            tmp += self.indent + '<when>{}</when>\n'.format(self[i])
+        return tmp
+        
+class TrackCoords(Container):
+    def __init__(self):
+        self.__permittedAttributes = []
+        super().__init__(self.__permittedAttributes, [GXCoord], False)
+    
+    def __str__(self):
+        tmp = ''
+        for i in range(len(self)):
+            tmp += self.indent + str(self[i])
+        return tmp
+        
 class Track(KMLObject):
     def __init__(self, **kwargs):
         self.__permittedAttributes = ['extendedData', 'schema', 'timeCollection', 'timeField',
                                       'timeFormat', 'coordCollection', 'coordFields', 'loadCSV']
-        self.timeCollection = Container([],[KMLDateTime], False)
-        self.coordCollection = Container([], [GXCoords], False)
-        
-        super().__init__(self.__permittedAttributes, [TimeStamp, GXCoord], False, **kwargs)
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+        self.timeCollection = TrackTimes()
+        self.coordCollection = TrackCoords()
         
         if 'autoload' in self.__dict__:
             if self.autoload:
@@ -1833,18 +1855,20 @@ class Track(KMLObject):
                         for i in range(len(self.extendedData.schemaData)):
                             self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
                         if 'timeFormat' in self.__dict__:
-                            self.append(TimeStamp(datetime.strptime(row[self.timeField], self.timeFormat)))
+                            self.timeCollection.append(KMLDateTime(datetime.strptime(row[self.timeField], self.timeFormat)))
                         else:
-                            self.append(TimeStamp(row[self.timeField]))
-                        self.append(GXCoord(longitude = row[self.coordFields[0]],
-                                            latitude = row[self.coordFields[1]],
-                                            altitude = None if len(self.coordFields) == 2 else row[self.coordFields[2]]
-                                            )
-                                    )
+                            self.timeCollection.append(KMLDateTime(row[self.timeField]))
+                        self.coordCollection.append(GXCoord(longitude = float(row[self.coordFields[0]]),
+                                                            latitude = float(row[self.coordFields[1]]),
+                                                            altitude = None if len(self.coordFields) == 2 else int(row[self.coordFields[2]])
+                                                            )
+                                                    )
         
     def __str__(self):
         tmp = self.indent + '<gx:Track>\n'
-        tmp += super().__str__()
+        tmp += str(self.timeCollection)
+        tmp += str(self.coordCollection)
+        tmp += str(self.extendedData)
         tmp += self.indent + '</gx:Track>\n'
         return tmp
     
@@ -1992,4 +2016,6 @@ attributeTypes = {
     'timeField'             : str,
     'coordFields'           : list,
     'timeFormat'            : str,
+    'timeCollection'        : TrackTimes,
+    'coordCollection'       : TrackCoords,
 }
