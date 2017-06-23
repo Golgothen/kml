@@ -45,7 +45,8 @@ class number(float):
     # Contained By : LabelStyle, IconStyle, Coords, LookAtCoords
     # 
     def __new__(self, value):
-        if type(value) not in [float, int]:
+        if not number.isFloat(value):
+            #if type(value) not in [float, int]:
             raise TypeError('Value must be a number, not {}'.format(value.__class__.__name__))
         return float.__new__(self, value)
 
@@ -1784,7 +1785,11 @@ class GXCoord(KMLObject):
     def __init__(self, **kwargs):
         
         self.__permittedAttributes = ['latitude', 'longitude', 'altitude']
-        super().__init__(self.__permittedAttributes, **kwargs)
+        super().__init__(self.__permittedAttributes)
+        for k in kwargs:
+            if k in self.__permittedAttributes:
+                if kwargs[k] is not None:
+                    setattr(self, k, kwargs[k])
 
     def __str__(self):
         tmp = '<gx:coord>'
@@ -1796,6 +1801,27 @@ class GXCoord(KMLObject):
                 if 'altitude' in self.__dict__:
                     tmp += ' {}'.format(self.altitude)
         tmp += '</gx:coord>\n'
+        return tmp
+
+class GXAngle(KMLObject):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['heading', 'tilt', 'roll']
+        super().__init__(self.__permittedAttributes)
+        for k in kwargs:
+            if k in self.__permittedAttributes:
+                if kwargs[k] is not None:
+                    setattr(self, k, kwargs[k])
+
+    def __str__(self):
+        tmp = '<gx:angles>'
+        if 'heading' in self.__dict__:
+            tmp += '{}'.format(self.heading)
+        if 'tilt' in self.__dict__:
+            tmp += ' {}'.format(self.tilt)
+        if 'roll' in self.__dict__:
+            tmp += ' {}'.format(self.roll)
+        tmp += '</gx:angles>\n'
         return tmp
 
 class TrackTimes(Container):
@@ -1820,14 +1846,27 @@ class TrackCoords(Container):
             tmp += self.indent + str(self[i])
         return tmp
         
-class Track(KMLObject):
+class TrackAngles(Container):
+    def __init__(self):
+        self.__permittedAttributes = []
+        super().__init__(self.__permittedAttributes, [GXAngle], False)
+    
+    def __str__(self):
+        tmp = ''
+        for i in range(len(self)):
+            tmp += self.indent + str(self[i])
+        return tmp
+        
+class Track(KMLGeometry):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['extendedData', 'schema', 'timeCollection', 'timeField',
-                                      'timeFormat', 'coordCollection', 'coordFields', 'loadCSV']
+        self.__permittedAttributes = ['extendedData', 'schema', 'timeCollection', 'timeField', 'csvFile',
+                                      'timeFormat', 'coordCollection', 'coordFields', 'loadCSV', 'autoload',
+                                      'angleCollection', 'angleFields', 'altitudeMode', 'model']
         super().__init__(self.__permittedAttributes, **kwargs)
 
         self.timeCollection = TrackTimes()
         self.coordCollection = TrackCoords()
+        self.angleCollection = TrackAngles()
         
         if 'autoload' in self.__dict__:
             if self.autoload:
@@ -1838,40 +1877,95 @@ class Track(KMLObject):
             raise ValueError('Time field must be set')
         if 'coordFields' not in self.__dict__:
             raise ValueError('Coord fields must be set')
-        if 'schema' in self.__dict__:
+        if 'schema' not in self.__dict__:
+            raise RuntimeError('Cannot loadCSV(). No schema set')
+        
+        if 'csvFile' not in self.__dict__:
             if 'csvFile' in self.schema.__dict__:
-                self.extendedData = ExtendedData(schemaData = SchemaData(schema = self.schema, autoload = False))
-                # Delete time and coord data from the SchemaData as they are stored in the track
-                if self.timeField in self.extendedData.schemaData:
-                    del self.extendedData.schemaData[self.extendedData.schemaData.index(self.timeField)]
-                for c in self.coordFields:
-                    if c in self.extendedData.schemaData:
-                        del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
-                
-                import csv
-                with open(self.schema.csvFile, newline = '') as csvfile:
-                    reader = csv.DictReader(csvfile)
-                    for row in reader:
-                        for i in range(len(self.extendedData.schemaData)):
-                            self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
-                        if 'timeFormat' in self.__dict__:
-                            self.timeCollection.append(KMLDateTime(datetime.strptime(row[self.timeField], self.timeFormat)))
-                        else:
-                            self.timeCollection.append(KMLDateTime(row[self.timeField]))
-                        self.coordCollection.append(GXCoord(longitude = float(row[self.coordFields[0]]),
-                                                            latitude = float(row[self.coordFields[1]]),
-                                                            altitude = None if len(self.coordFields) == 2 else int(row[self.coordFields[2]])
-                                                            )
-                                                    )
+                self.csvFile = self.schema.csvFile
+            else:
+                raise RuntimeError('Cannot loadCSV(). No CSV file set')
+            
+        self.extendedData = ExtendedData(schemaData = SchemaData(schema = self.schema, autoload = False))
+        # Delete time and coord data from the SchemaData as they are stored in the track
+        if self.timeField in self.extendedData.schemaData:
+            del self.extendedData.schemaData[self.extendedData.schemaData.index(self.timeField)]
+        if 'coordFields' not in self.__dict__:
+            raise RuntimeError('Cannot loadCSV(). No coord fields set')
+        if len(self.coordFields) < 2:
+            raise RuntimeError('Cannot loadCSV(). Coords needs at least longitude and latitude')
+        
+        for c in self.coordFields:
+            if c in self.extendedData.schemaData:
+                del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
+        
+        import csv
+        with open(self.schema.csvFile, newline = '') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                for i in range(len(self.extendedData.schemaData)):
+                    self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
+                if 'timeFormat' in self.__dict__:
+                    self.timeCollection.append(KMLDateTime(datetime.strptime(row[self.timeField], self.timeFormat)))
+                else:
+                    self.timeCollection.append(KMLDateTime(row[self.timeField]))
+                lon = None if not number.isFloat(row[self.coordFields[0]]) else number(row[self.coordFields[0]])
+                lat = None if not number.isFloat(row[self.coordFields[1]]) else number(row[self.coordFields[1]])
+                if len(self.coordFields) == 2:
+                    alt = None if not number.isInt(row[self.coordFields[2]]) else number(row[self.coordFields[2]])
+                else:
+                    alt = None 
+                self.coordCollection.append(GXCoord(longitude = lon, latitude = lat, altitude = alt))
+                if 'angleFields' in self.__dict__:
+                    if len(self.angleFields) > 0:
+                        heading = None if not number.isFloat(row[self.angleFields[0]]) else number(row[self.angleFields[0]])
+                    else:
+                        heading = None 
+                    if len(self.angleFields) > 1:
+                        tilt = None if not number.isFloat(row[self.angleFields[1]]) else number(row[self.angleFields[1]])
+                    else:
+                        tilt = None 
+                    if len(self.angleFields) > 2:
+                        roll = None if not number.isFloat(row[self.angleFields[2]]) else number(row[self.angleFields[2]])
+                    else:
+                        roll = None
+                    if len(self.angleFields) > 0: 
+                        self.angleCollection.append(GXAngle(heading = heading, tilt = tilt, roll = roll))
         
     def __str__(self):
         tmp = self.indent + '<gx:Track>\n'
+        if 'altitudeMode' in self.__dict__:
+            tmp += str(self.altitudeMode)
         tmp += str(self.timeCollection)
         tmp += str(self.coordCollection)
+        tmp += str(self.angleCollection)
         tmp += str(self.extendedData)
         tmp += self.indent + '</gx:Track>\n'
         return tmp
+
+class Tracks(Container):
+    def __init__(self):
+        self.__permittedAttributes = []
+        super().__init__(self.__permittedAttributes, [Track], False)
     
+    def __str__(self):
+        tmp = ''
+        for i in range(len(self)):
+            tmp += str(self[i])
+        return tmp
+    
+class MultiTrack(KMLObject):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['interpolate', 'altitudeMode', 'tracks']
+        super().__init__(self.__permittedAttributes)
+        self.tracks = Tracks()
+    def __str__(self):
+        tmp = self.indent + '<gx:MultiTrack{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:MultiTrack\n'
+        return tmp
+        
 
 ############################################################################
 #
@@ -2018,4 +2112,9 @@ attributeTypes = {
     'timeFormat'            : str,
     'timeCollection'        : TrackTimes,
     'coordCollection'       : TrackCoords,
+    'angleCollection'       : TrackAngles,
+    'angleFields'           : list,
+    'model'                 : Model,
+    'interpolate'           : booleanEnum,
+    
 }
