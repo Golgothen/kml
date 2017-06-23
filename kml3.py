@@ -1859,14 +1859,14 @@ class TrackAngles(Container):
         
 class Track(KMLGeometry):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['extendedData', 'schema', 'timeCollection', 'timeField', 'csvFile',
-                                      'timeFormat', 'coordCollection', 'coordFields', 'loadCSV', 'autoload',
-                                      'angleCollection', 'angleFields', 'altitudeMode', 'model']
+        self.__permittedAttributes = ['extendedData', 'schema', 'times', 'timeField', 'csvFile',
+                                      'timeFormat', 'coords', 'coordFields', 'loadCSV', 'autoload',
+                                      'angles', 'angleFields', 'altitudeMode', 'model']
         super().__init__(self.__permittedAttributes, **kwargs)
 
-        self.timeCollection = TrackTimes()
-        self.coordCollection = TrackCoords()
-        self.angleCollection = TrackAngles()
+        self.times = TrackTimes()
+        self.coords = TrackCoords()
+        self.angles = TrackAngles()
         
         if 'autoload' in self.__dict__:
             if self.autoload:
@@ -1898,24 +1898,27 @@ class Track(KMLGeometry):
         for c in self.coordFields:
             if c in self.extendedData.schemaData:
                 del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
+        for c in self.angleFields:
+            if c in self.extendedData.schemaData:
+                del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
         
         import csv
-        with open(self.schema.csvFile, newline = '') as csvfile:
+        with open(self.csvFile, newline = '') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 for i in range(len(self.extendedData.schemaData)):
                     self.extendedData.schemaData[i].append(SimpleArrayData(value = row[self.extendedData.schemaData[i].name]))
                 if 'timeFormat' in self.__dict__:
-                    self.timeCollection.append(KMLDateTime(datetime.strptime(row[self.timeField], self.timeFormat)))
+                    self.times.append(KMLDateTime(datetime.strptime(row[self.timeField], self.timeFormat)))
                 else:
-                    self.timeCollection.append(KMLDateTime(row[self.timeField]))
+                    self.times.append(KMLDateTime(row[self.timeField]))
                 lon = None if not number.isFloat(row[self.coordFields[0]]) else number(row[self.coordFields[0]])
                 lat = None if not number.isFloat(row[self.coordFields[1]]) else number(row[self.coordFields[1]])
                 if len(self.coordFields) == 2:
                     alt = None if not number.isInt(row[self.coordFields[2]]) else number(row[self.coordFields[2]])
                 else:
                     alt = None 
-                self.coordCollection.append(GXCoord(longitude = lon, latitude = lat, altitude = alt))
+                self.coords.append(GXCoord(longitude = lon, latitude = lat, altitude = alt))
                 if 'angleFields' in self.__dict__:
                     if len(self.angleFields) > 0:
                         heading = None if not number.isFloat(row[self.angleFields[0]]) else number(row[self.angleFields[0]])
@@ -1930,15 +1933,15 @@ class Track(KMLGeometry):
                     else:
                         roll = None
                     if len(self.angleFields) > 0: 
-                        self.angleCollection.append(GXAngle(heading = heading, tilt = tilt, roll = roll))
+                        self.angles.append(GXAngle(heading = heading, tilt = tilt, roll = roll))
         
     def __str__(self):
         tmp = self.indent + '<gx:Track>\n'
         if 'altitudeMode' in self.__dict__:
             tmp += str(self.altitudeMode)
-        tmp += str(self.timeCollection)
-        tmp += str(self.coordCollection)
-        tmp += str(self.angleCollection)
+        tmp += str(self.times)
+        tmp += str(self.coords)
+        tmp += str(self.angles)
         tmp += str(self.extendedData)
         tmp += self.indent + '</gx:Track>\n'
         return tmp
@@ -1960,6 +1963,7 @@ class MultiTrack(KMLObject):
         self.__permittedAttributes = ['interpolate', 'altitudeMode', 'tracks']
         super().__init__(self.__permittedAttributes)
         self.tracks = Tracks()
+        self.tracks.depth = self.depth
     def __str__(self):
         tmp = self.indent + '<gx:MultiTrack{}>\n'.format(self.getID)
         tmp += super().__str__()
@@ -2110,11 +2114,11 @@ attributeTypes = {
     'timeField'             : str,
     'coordFields'           : list,
     'timeFormat'            : str,
-    'timeCollection'        : TrackTimes,
-    'coordCollection'       : TrackCoords,
-    'angleCollection'       : TrackAngles,
+    'times'                 : TrackTimes,
+    'coords'                : TrackCoords,
+    'angles'                : TrackAngles,
     'angleFields'           : list,
     'model'                 : Model,
     'interpolate'           : booleanEnum,
-    
+    'tracks'                : Tracks,
 }
