@@ -625,6 +625,22 @@ class viewRefreshModeEnum(Enum):
     def __str__(self):
         return self.name
 
+class gridOriginEnum(Enum):
+    lowerLeft = 0
+    upperLeft = 1
+    
+    def __str__(self):
+        return self.name
+
+class shapeEnum(Enum):
+    rectangle = 0
+    cylinder = 1
+    sphere = 2
+    
+    def __str__(self):
+        return self.name
+
+
 ################################################################################################
 #                                                                                              #
 #   KML Abstract Object definitions (base classes)                                             #
@@ -794,8 +810,8 @@ class Location(KMLObject):
         return tmp
     
 class KMLFeature(KMLObject):
-    def __init__(self, **kwargs):
-        self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
+    def __init__(self, permittedAttributes, **kwargs):
+        self.__permittedAttributes = permittedAttributes + ['name', 'description', 'visibility', 'open', 'atom_link', 
                                       'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
                                       'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
                                       'region', 'extendedData']
@@ -1167,15 +1183,22 @@ class Icon(KMLObject):
             tmp += self.indent + '</Icon>\n'
             return tmp
 
-class HotSpot(KMLObject):
-    def __init__(self, **kwargs):
-        super().__init__(['x', 'y', 'xunits', 'yunits'], **kwargs)
+class Vector(KMLObject):
+    def __init__(self, attributes, **kwargs):
+        super().__init__(attributes + ['x', 'y', 'xunits', 'yunits'], **kwargs)
     
     def __str__(self):
         if not self.checkAttributes(['x', 'y', 'xunits', 'yunits']):
             return ''
         else:
-            return self.indent + '<hotSpot x="{}" y="{}" xunits="{}" yunits="{}"/>\n'.format(self.x, self.y, self.xunits, self.yunits)
+            return 'x="{}" y="{}" xunits="{}" yunits="{}"'.format(self.x, self.y, self.xunits, self.yunits)
+
+class HotSpot(Vector):
+    def __init__(self, **kwargs):
+        super().__init__([], **kwargs)
+    
+    def __str__(self):
+        return self.indent + '<hotSpot {}/>\n'.format(super().__str__())
  
 class IconStyle(KMLObject):
     def __init__(self, **kwargs):
@@ -1360,6 +1383,40 @@ class LatLonAltBox(KMLObject):
             tmp = self.indent + '<LatLonAltBox>\n'
             tmp += super().__str__()
             tmp += self.indent + '</LatLonAltBox>\n'
+            return tmp
+    
+class LatLonBox(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['north', 'south', 'east', 'west', 'rotation']
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+    def __str__(self):
+        if not self.checkAttributes(['north', 'south', 'east', 'west']):
+            return ''
+        else:
+            tmp = self.indent + '<LatLonBox>\n'
+            tmp += super().__str__()
+            tmp += self.indent + '</LatLonBox>\n'
+            return tmp
+    
+class LatLonQuad(KMLObject):
+    def __init__(self, **kwargs):
+        self.__permittedAttributes = ['coordinates']
+        super().__init__(self.__permittedAttributes, **kwargs)
+        if 'coordinates' not in self.__dict__:
+            self.coordinates = Coordinates()
+        
+    def __str__(self):
+        if len(self.coordinates) < 4:
+            logger.warning('LatLonQuad has less than four coordinate points set. Nothing returned')
+            return ''
+        else:
+            tmp = self.indent + '<gx:LatLonBox>\n'
+            tmp += self.indent + ' <coordinates>{} {} {} {}</coordinates>\n'.format(self.coordinates[0],
+                                                                                    self.coordinates[1],
+                                                                                    self.coordinates[2],
+                                                                                    self.coordinates[3])
+            tmp += self.indent + '</gx:LatLonBox>\n'
             return tmp
     
 class Lod(KMLObject):
@@ -1635,12 +1692,9 @@ class ResourceMap(Container):
         tmp += self.indent + '</ResourceMap>\n'
         return tmp
     
-class Folder(Container):
+class Folder(Container, KMLFeature):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
-                                      'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
-                                      'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
-                                      'region', 'extendedData']
+        self.__permittedAttributes = []
 
         super().__init__(self.__permittedAttributes, [KMLFeature], True, **kwargs)
 
@@ -1648,13 +1702,11 @@ class Folder(Container):
         tmp = self.indent + '<Folder{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '<Folder>\n'
+        return tmp
 
-class Document(Container):
+class Document(Container, KMLFeature):
     def __init__(self, **kwargs):
-        self.__permittedAttributes = ['name', 'description', 'visibility', 'open', 'atom_link', 
-                                      'atom_author', 'address', 'xal_AddressDetails', 'phoneNumber',
-                                      'Snippet', 'time', 'view', 'styleUrl', 'styleSelector',
-                                      'region', 'extendedData']
+        self.__permittedAttributes = []
 
         super().__init__(self.__permittedAttributes, [KMLFeature, Schema], False, **kwargs)
         
@@ -1662,6 +1714,7 @@ class Document(Container):
         tmp = self.indent + '<Document{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '<Document>\n'
+        return tmp
 
 class KMLGeometry(KMLObject):
     # Inheritance placeholder class for all geometry types
@@ -1970,6 +2023,128 @@ class MultiTrack(KMLObject):
         tmp += self.indent + '</gx:MultiTrack\n'
         return tmp
         
+class NetworkLink(KMLFeature):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['refreshVisibility','flyToView','link']
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+    def __str__(self):
+        tmp = self.indent + '<NetworkLink{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</NetworkLink>\n'
+        return tmp
+    
+class Placemark(KMLFeature):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['geometry']
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+    def __str__(self):
+        tmp = self.indent + '<Placemark{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Placemark>\n'
+        return tmp
+    
+class KMLOverlay(KMLFeature):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['color', 'drawOrder', 'icon']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        return super().__str__()
+    
+class GroundOverlay(KMLOverlay):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['altitude', 'altitudeMode', 'latLonBox', 'latLonQuad']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<GroundOverlay{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</GroundOverlay>\n'
+        return tmp
+    
+class OverlayXY(Vector):
+    def __init__(self, **kwargs):
+        super().__init__([], **kwargs)
+    
+    def __str__(self):
+        return self.indent + '<overlayXY {}/>\n'.format(super().__str__())
+ 
+class ScreenXY(Vector):
+    def __init__(self, **kwargs):
+        super().__init__([], **kwargs)
+    
+    def __str__(self):
+        return self.indent + '<screenXY {}/>\n'.format(super().__str__())
+ 
+class RotationXY(Vector):
+    def __init__(self, **kwargs):
+        super().__init__([], **kwargs)
+    
+    def __str__(self):
+        return self.indent + '<rotationXY {}/>\n'.format(super().__str__())
+ 
+class Size(Vector):
+    def __init__(self, **kwargs):
+        super().__init__([], **kwargs)
+    
+    def __str__(self):
+        return self.indent + '<size {}/>\n'.format(super().__str__())
+ 
+class ScreenOverlay(KMLOverlay):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['overlayXY', 'screenXY', 'rotationXY', 'size', 'rotation']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<ScreenOverlay{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</ScreenOverlay>\n'
+        return tmp
+    
+class ViewVolume(KMLObject):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['leftFov', 'rightFov', 'bottomFov', 'topFov', 'near']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<ViewVolume>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</ViewVolume>\n'
+        return tmp
+    
+class ImagePyramid(KMLObject):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['tileSize', 'maxWidth', 'maxHeight', 'gridOrigin']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<ImagePyramid>\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</ImagePyramid>\n'
+        return tmp
+    
+class PhotoOverlay(KMLObject):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['rotation', 'viewVolume', 'imagePyramid', 'point', 'shape']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<Template{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Template>\n'
+        return tmp
+
+
 
 ############################################################################
 #
@@ -1978,9 +2153,9 @@ class MultiTrack(KMLObject):
 ############################################################################
 
 class Template(KMLObject):
-    def __init__(self, **kwargs):
+    def __init__(self, attributes, **kwargs):
         
-        self.__permittedAttributes = []
+        self.__permittedAttributes = attributes + []
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2091,8 +2266,6 @@ attributeTypes = {
     'schemaData'            : SchemaData,
     'viewRefreshMode'       : viewRefreshModeEnum,
     'viewRefreshTime'       : number,
-    'x'                     : number,
-    'y'                     : number,
     'z'                     : number,
     'sourceHref'            : str,
     'targetHref'            : str,
@@ -2121,4 +2294,30 @@ attributeTypes = {
     'model'                 : Model,
     'interpolate'           : booleanEnum,
     'tracks'                : Tracks,
+    'refreshVisibility'     : booleanEnum,
+    'flyToView'             : booleanEnum,
+    'geometry'              : KMLGeometry,
+    'drawOrder'             : number,
+    'rotation'              : angle180,
+    'latLonBox'             : LatLonBox,
+    'latLonQuad'            : LatLonQuad,
+    'overlayXY'             : OverlayXY,
+    'screenXY'              : ScreenXY,
+    'rotationXY'            : RotationXY,
+    'size'                  : Size,
+    'leftFov'               : angle180,
+    'rightFov'              : angle180,
+    'topFov'                : angle90,
+    'bottomFov'             : angle90,
+    'near'                  : number,
+    'viewVolume'            : ViewVolume,
+    'imagePyramid'          : ImagePyramid,
+    'point'                 : Point,
+    'shape'                 : shapeEnum,
+    'gridOrigin'            : gridOriginEnum,
+    'tileSize'              : number,
+    'maxWidth'              : number,
+    'maxHeight'             : number,
+    
+    
 }
