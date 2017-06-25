@@ -10,7 +10,6 @@ logger.setLevel(logging.DEBUG)
 
 from datetime import datetime
 from time import time
-
 from inspect import getmro
 from enum import Enum, EnumMeta
 from collections import deque
@@ -2144,6 +2143,38 @@ class PhotoOverlay(KMLObject):
         tmp += self.indent + '</Template>\n'
         return tmp
 
+class GXTour(KMLFeature):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['playList']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:Tour{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:Tour>\n'
+        return tmp
+
+class GXTourPrimitive(KMLObject):
+    # Inheritance placeholder class for all tour types
+    def __init__(self, permittedAttributes, **kwargs):
+        self.__permittedAttributes = permittedAttributes
+        super().__init__(self.__permittedAttributes, **kwargs)
+
+
+
+class GXPlayList(Container):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + []
+        super().__init__(self.__permittedAttributes, [GXTourPrimitive], False, **kwargs)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:Playlist>\n'
+        for i in range(len(self)):
+            tmp += str(self[i])
+        tmp += self.indent + '</gx:Playlist>\n'
+        return tmp
 
 
 ############################################################################
@@ -2318,6 +2349,7 @@ attributeTypes = {
     'tileSize'              : number,
     'maxWidth'              : number,
     'maxHeight'             : number,
+    'playList'              : GXPlayList,
     
     
 }
