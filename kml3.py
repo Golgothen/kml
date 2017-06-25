@@ -2143,6 +2143,33 @@ class PhotoOverlay(KMLObject):
         tmp += self.indent + '</Template>\n'
         return tmp
 
+class Update(KMLObject):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['targetHref', 'change', 'create', 'delete']
+        super().__init__(self.__permittedAttributes)
+        self.change = Container([], [], False)
+        self.create = Container([], [], False)
+        self.delete = Container([], [], False)
+
+    def __str__(self):
+        tmp = self.indent + '<Update>\n'
+        if len(self.change) > 0:
+            tmp += self.indent + ' <Change>\n'
+            tmp += str(self.change)
+            tmp += self.indent + ' </Change>\n'
+        if len(self.create) > 0:
+            tmp += self.indent + ' <Create>\n'
+            tmp += str(self.create)
+            tmp += self.indent + ' </Create>\n'
+        if len(self.delete) > 0:
+            tmp += self.indent + ' <Delete>\n'
+            tmp += str(self.delete)
+            tmp += self.indent + ' </Delete>\n'
+            
+        tmp += self.indent + '</Update>\n'
+        return tmp
+
 class GXTour(KMLFeature):
     def __init__(self, attributes, **kwargs):
         
