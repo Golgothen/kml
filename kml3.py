@@ -902,17 +902,26 @@ class TimePrimitive(KMLObject):
         f.time = '2006'                       # f.time is TimeStamp with <when> = '2006'
         f.time = '2006', '2007'               # f.time is TimeSpan with <begin> = '2006' and <end> = '2007'
     """
-    def __new__(self, arg):
-        if type(arg) in [TimeSpan,TimeStamp]:
+    def __new__(self, arg, gx = False):
+        if type(arg) in [TimeSpan, TimeStamp, GXTimeSpan, GXTimeStamp]:
             return arg
         if type(arg) is str:
-            return TimeStamp(arg)
+            if gx:
+                return GXTimeStamp(arg)
+            else:
+                return TimeStamp(arg)
         if type(arg) is list:
             arg = tuple(arg)
         if len(arg) == 1:
-            return TimeStamp(arg[0])
+            if gx:
+                return GXTimeStamp(arg[0])
+            else:
+                return TimeStamp(arg[0])
         if len(arg) >= 2:
-            return TimeSpan(arg[0], arg[1])
+            if gx:
+                return GXTimeSpan(arg[0], arg[1])
+            else:
+                return TimeSpan(arg[0], arg[1])
 
 class TimeStamp(KMLObject):
     def __init__(self, value):
@@ -925,6 +934,17 @@ class TimeStamp(KMLObject):
         tmp += self.indent + '</TimeStamp>\n'
         return tmp
 
+class GXTimeStamp(KMLObject):
+    def __init__(self, value):
+        super().__init__(['when'])
+        self.when = value
+    
+    def __str__(self):
+        tmp = self.indent + '<GXTimeStamp{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</GXTimeStamp>\n'
+        return tmp
+        
 class TimeSpan(KMLObject):
     def __init__(self, begin = None, end = None):
         super().__init__(['begin', 'end'])
@@ -937,6 +957,20 @@ class TimeSpan(KMLObject):
         tmp = self.indent + '<TimeSpan{}>\n'.format(self.getID)
         tmp += super().__str__()
         tmp += self.indent + '</TimeSpan>\n'
+        return tmp
+
+class GXTimeSpan(KMLObject):
+    def __init__(self, begin = None, end = None):
+        super().__init__(['begin', 'end'])
+        if begin is not None:
+            self.begin = begin
+        if end is not None:
+            self.end = end
+    
+    def __str__(self):
+        tmp = self.indent + '<GXTimeSpan{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</GXTimeSpan>\n'
         return tmp
 
 class Coordinate(KMLObject):
@@ -2284,13 +2318,44 @@ class GXPlayList(Container):
 class KML(KMLObject):
     def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['hint']
+        self.__permittedAttributes = attributes + ['hint', 'feature']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
-        tmp = self.indent + '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">\n'
+        tmp = self.indent + '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"'
+        if 'hint' in self.__dict__: tmp += '{}'.format(self.hint)
+        tmp += '>\n'
         tmp += super().__str__()
         tmp += self.indent + '</kml>\n'
+        return tmp
+
+class LinkSnippet(KMLObject):
+    def __init__(self, **kwargs):
+        super().__init__(['text','maxLines'], **kwargs)
+        
+    def __str__(self):
+        if not self.checkAttributes(['text']):
+            return ''
+        else:
+            tmp = self.indent + '<linkSnippet'
+            if 'maxLines' in self.__dict__:
+                tmp += ' maxLines="{}"'.format(self.maxLines)
+            tmp += '>{}</linkSnippet>\n'.format(self.text)
+            return tmp
+        
+
+class NetworkLinkControl(KMLObject):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['minRefreshPeriod', 'maxSessionLength', 'cookie', 
+                                                   'message', 'linkName', 'linkDescription', 'linkSnippet',
+                                                   'expires', 'update', 'view']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<Template{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</Template>\n'
         return tmp
 
 
@@ -2476,4 +2541,18 @@ attributeTypes = {
     'gx_flyToMode'          : flyToModeEnum,
     'gx_playMode'           : playModeEnum,
     'hint'                  : str,
+    'feature'               : KMLFeature,
+    'minRefreshPeriod'      : number,
+    'maxSessionLength'      : number,
+    'cookie'                : str,
+    'message'               : str,
+    'linkName'              : str,
+    'linkDescription'       : str,
+    'linkSnippet'           : LinkSnippet,
+    'expires'               : KMLDateTime,
+    'update'                : Update,
+    'view'                  : KMLView,
+    
+    
+    
 }
