@@ -1061,9 +1061,11 @@ class Container(KMLObject, deque):
             if type(value) in self.__validTypes:
                 valid =  True
             # Check for derived types:
-            for t in self.__validTypes:
-                if t in getmro(value.__class__):
-                    valid = True
+            if not valid:
+                for t in self.__validTypes:
+                    if t in getmro(value.__class__):
+                        valid = True
+                        break
             # Raise an error on type mismatch
             if not valid:
                 raise TypeError('Type {} invalid for container {}'.format(value.__class__.__name__, self.__class__.__name__))
@@ -1083,13 +1085,19 @@ class Container(KMLObject, deque):
             self[a].depth = self.depth + 1
     
     def append(self, value):
-        super().append(self.__validateType(value))
+        value = self.__validateType(value)
+        super().append(value)
+        return value
 
     def appendleft(self, value):
-        super().appendleft(self.__validateType(value))
+        value = self.__validateType(value)
+        super().appendleft(value)
+        return value
 
     def insert(self, index, value):
-        super().insert(index, self.__validateType(value))
+        value = self.__validateType(value)
+        super().insert(index, value)
+        return value
     
     def __str__(self):
         tmp = ''
@@ -1742,7 +1750,7 @@ class Folder(Container, KMLFeature):
     def __init__(self, **kwargs):
         self.__permittedAttributes = []
 
-        super().__init__(self.__permittedAttributes, [KMLFeature], True, **kwargs)
+        super().__init__(self.__permittedAttributes, [KMLObject], False, **kwargs)
 
     def __str__(self):
         tmp = self.indent + '<Folder{}>\n'.format(self.getID)
@@ -1754,7 +1762,7 @@ class Document(Container, KMLFeature):
     def __init__(self, **kwargs):
         self.__permittedAttributes = []
 
-        super().__init__(self.__permittedAttributes, [KMLFeature, Schema], False, **kwargs)
+        super().__init__(self.__permittedAttributes, [KMLObject], False, **kwargs)
         
     def __str__(self):
         tmp = self.indent + '<Document{}>\n'.format(self.getID)
@@ -1984,7 +1992,10 @@ class Track(KMLGeometry):
                 self.csvFile = self.schema.csvFile
             else:
                 raise RuntimeError('Cannot loadCSV(). No CSV file set')
-            
+        
+        if 'extendedData' not in self.__dict__:
+            raise ValueError('Track has no data. Nothing to output')
+        
         self.extendedData = ExtendedData(schemaData = SchemaData(schema = self.schema, autoload = False))
         # Delete time and coord data from the SchemaData as they are stored in the track
         if self.timeField in self.extendedData.schemaData:
@@ -2318,11 +2329,12 @@ class GXPlayList(Container):
 class KML(KMLObject):
     def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['hint', 'feature', 'save']
+        self.__permittedAttributes = ['hint', 'feature', 'save']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
-        tmp = self.indent + '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"'
+        tmp = self.indent + '<?xml version="1.0" encoding="utf-8"?>\n'
+        tmp += self.indent + '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"'
         if 'hint' in self.__dict__: tmp += '{}'.format(self.hint)
         tmp += '>\n'
         tmp += super().__str__()
