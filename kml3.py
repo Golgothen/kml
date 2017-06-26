@@ -2342,7 +2342,6 @@ class LinkSnippet(KMLObject):
                 tmp += ' maxLines="{}"'.format(self.maxLines)
             tmp += '>{}</linkSnippet>\n'.format(self.text)
             return tmp
-        
 
 class NetworkLinkControl(KMLObject):
     def __init__(self, attributes, **kwargs):
@@ -2357,31 +2356,6 @@ class NetworkLinkControl(KMLObject):
         tmp += super().__str__()
         tmp += self.indent + '</Template>\n'
         return tmp
-
-
-############################################################################
-#
-# Template class
-#
-############################################################################
-
-class Template(KMLObject):
-    def __init__(self, attributes, **kwargs):
-        
-        self.__permittedAttributes = attributes + []
-        super().__init__(self.__permittedAttributes)
-
-    def __str__(self):
-        tmp = self.indent + '<Template{}>\n'.format(self.getID)
-        tmp += super().__str__()
-        tmp += self.indent + '</Template>\n'
-        return tmp
-    
-
-
-
-
-
 
 
 attributeTypes = {
@@ -2552,7 +2526,4 @@ attributeTypes = {
     'expires'               : KMLDateTime,
     'update'                : Update,
     'view'                  : KMLView,
-    
-    
-    
 }
