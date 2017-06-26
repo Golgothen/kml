@@ -2318,7 +2318,7 @@ class GXPlayList(Container):
 class KML(KMLObject):
     def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['hint', 'feature']
+        self.__permittedAttributes = attributes + ['hint', 'feature', 'save']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2328,6 +2328,14 @@ class KML(KMLObject):
         tmp += super().__str__()
         tmp += self.indent + '</kml>\n'
         return tmp
+    
+    def save(self, filename, overwrite = True):
+        import os.path
+        if os.path.isfile(filename):
+            if not overwrite:
+                raise FileError('File {} already exists and overwrite is False'.format(filename))
+        with open(filename, 'w') as f:
+            f.write(str(self))
 
 class LinkSnippet(KMLObject):
     def __init__(self, **kwargs):
@@ -2356,7 +2364,6 @@ class NetworkLinkControl(KMLObject):
         tmp += super().__str__()
         tmp += self.indent + '</Template>\n'
         return tmp
-
 
 attributeTypes = {
     # Attribute name        : Data type
