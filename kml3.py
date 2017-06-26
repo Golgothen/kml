@@ -639,6 +639,13 @@ class shapeEnum(Enum):
     def __str__(self):
         return self.name
 
+class flyToModeEnum(Enum):
+    smooth = 0
+    bounce = 1
+    
+    def __str__(self):
+        return self.name
+
 
 ################################################################################################
 #                                                                                              #
@@ -2207,7 +2214,29 @@ class GXAnimatedUpdate(GXTourPrimitive):
         tmp += self.indent + '</gx:AnimatedUpdate>\n'
         return tmp
 
+class GXFlyTo(GXTourPrimitive):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['gx_duration', 'gx_flyToMode', 'view']
+        super().__init__(self.__permittedAttributes)
 
+    def __str__(self):
+        tmp = self.indent + '<gx:FlyTo{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:FlyTo>\n'
+        return tmp
+
+class GXSoundCue(GXTourPrimitive):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['gx_delayedStart', 'href']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:SoundCue{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:SoundCue>\n'
+        return tmp
 
 class GXPlayList(Container):
     def __init__(self, attributes, **kwargs):
@@ -2402,5 +2431,6 @@ attributeTypes = {
     'gx_duration'           : number,
     'gx_delayedStart'       : number,
     'update'                : Update,
+    'gx_flyToMode'          : flyToModeEnum,
     
 }
