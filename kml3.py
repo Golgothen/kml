@@ -646,6 +646,12 @@ class flyToModeEnum(Enum):
     def __str__(self):
         return self.name
 
+class playModeEnum(Enum):
+    pause = 0
+    
+    def __str__(self):
+        return self.name
+
 
 ################################################################################################
 #                                                                                              #
@@ -2203,9 +2209,9 @@ class GXTourPrimitive(KMLObject):
         super().__init__(self.__permittedAttributes, **kwargs)
 
 class GXAnimatedUpdate(GXTourPrimitive):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['gx_duration', 'gx_delayedStart', 'update']
+        self.__permittedAttributes = ['gx_duration', 'gx_delayedStart', 'update']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2215,9 +2221,9 @@ class GXAnimatedUpdate(GXTourPrimitive):
         return tmp
 
 class GXFlyTo(GXTourPrimitive):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['gx_duration', 'gx_flyToMode', 'view']
+        self.__permittedAttributes = ['gx_duration', 'gx_flyToMode', 'view']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2227,9 +2233,9 @@ class GXFlyTo(GXTourPrimitive):
         return tmp
 
 class GXSoundCue(GXTourPrimitive):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['gx_delayedStart', 'href']
+        self.__permittedAttributes = ['gx_delayedStart', 'href']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2238,10 +2244,34 @@ class GXSoundCue(GXTourPrimitive):
         tmp += self.indent + '</gx:SoundCue>\n'
         return tmp
 
-class GXPlayList(Container):
-    def __init__(self, attributes, **kwargs):
+class GXTourControl(GXTourPrimitive):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + []
+        self.__permittedAttributes = ['gx_playMode']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:TourControl{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:TourControl>\n'
+        return tmp
+
+class GXWait(GXTourPrimitive):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = ['gx_duration']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:Wait{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:Wait>\n'
+        return tmp
+
+class GXPlayList(Container):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = []
         super().__init__(self.__permittedAttributes, [GXTourPrimitive], False, **kwargs)
 
     def __str__(self):
@@ -2249,6 +2279,18 @@ class GXPlayList(Container):
         for i in range(len(self)):
             tmp += str(self[i])
         tmp += self.indent + '</gx:Playlist>\n'
+        return tmp
+
+class KML(KMLObject):
+    def __init__(self, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['hint']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">\n'
+        tmp += super().__str__()
+        tmp += self.indent + '</kml>\n'
         return tmp
 
 
@@ -2432,5 +2474,6 @@ attributeTypes = {
     'gx_delayedStart'       : number,
     'update'                : Update,
     'gx_flyToMode'          : flyToModeEnum,
-    
+    'gx_playMode'           : playModeEnum,
+    'hint'                  : str,
 }
