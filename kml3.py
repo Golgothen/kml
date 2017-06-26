@@ -732,7 +732,7 @@ class KMLObject(object):
                         # Objects handle their own code formatting and indentation
                         tmp += str(self.__dict__[a])
                     else:
-                        # Simple attributes and be easily formatted
+                        # Simple attributes can be easily formatted
                         # All enums should know how to return the proper value when requested.  See the __str__() of the respective enum.
                         if a[:3] == 'gx_':
                             tmp += self.indent + ' <{}>{}</{}>\n'.format(a.replace('_',':'),self.__dict__[a],a.replace('_',':'))
@@ -1533,7 +1533,7 @@ class SimpleData(KMLObject):
 
 class SchemaData(Container):
     def __init__(self, **kwargs):
-        super().__init__(['schema', 'addData', 'loadData', 'autoload'], [SimpleData, SimpleArray], True, **kwargs)
+        super().__init__(['schema', 'addData', 'loadCSV', 'autoload'], [SimpleData, SimpleArray], True, **kwargs)
         
         # Automatically create SimpleArray objects for each SimpleArrayField defined in the given schema
         if 'schema' in self.__dict__:
@@ -1545,7 +1545,7 @@ class SchemaData(Container):
             if self.autoload:
                 self.loadData()
     
-    def loadData(self):
+    def loadCSV(self):
         if 'schema' in self.__dict__:
             if 'csvFile' in self.schema.__dict__:
                 import csv
@@ -1950,9 +1950,10 @@ class Track(KMLGeometry):
         for c in self.coordFields:
             if c in self.extendedData.schemaData:
                 del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
-        for c in self.angleFields:
-            if c in self.extendedData.schemaData:
-                del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
+        if 'angleFields' in self.__dict__:
+            for c in self.angleFields:
+                if c in self.extendedData.schemaData:
+                    del self.extendedData.schemaData[self.extendedData.schemaData.index(c)]
         
         import csv
         with open(self.csvFile, newline = '') as csvfile:
@@ -1988,7 +1989,7 @@ class Track(KMLGeometry):
                         self.angles.append(GXAngle(heading = heading, tilt = tilt, roll = roll))
         
     def __str__(self):
-        tmp = self.indent + '<gx:Track>\n'
+        tmp = self.indent + '<gx:Track{}>\n'.format(self.getID)
         if 'altitudeMode' in self.__dict__:
             tmp += str(self.altitudeMode)
         tmp += str(self.times)
@@ -2011,11 +2012,11 @@ class Tracks(Container):
     
 class MultiTrack(KMLObject):
     def __init__(self, **kwargs):
-        
         self.__permittedAttributes = ['interpolate', 'altitudeMode', 'tracks']
         super().__init__(self.__permittedAttributes)
         self.tracks = Tracks()
         self.tracks.depth = self.depth
+
     def __str__(self):
         tmp = self.indent + '<gx:MultiTrack{}>\n'.format(self.getID)
         tmp += super().__str__()
@@ -2048,12 +2049,8 @@ class Placemark(KMLFeature):
     
 class KMLOverlay(KMLFeature):
     def __init__(self, **kwargs):
-        
         self.__permittedAttributes = ['color', 'drawOrder', 'icon']
         super().__init__(self.__permittedAttributes)
-
-    def __str__(self):
-        return super().__str__()
     
 class GroundOverlay(KMLOverlay):
     def __init__(self, **kwargs):
@@ -2120,9 +2117,9 @@ class ViewVolume(KMLObject):
         return tmp
     
 class ImagePyramid(KMLObject):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['tileSize', 'maxWidth', 'maxHeight', 'gridOrigin']
+        self.__permittedAttributes = ['tileSize', 'maxWidth', 'maxHeight', 'gridOrigin']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
@@ -2132,28 +2129,38 @@ class ImagePyramid(KMLObject):
         return tmp
     
 class PhotoOverlay(KMLObject):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['rotation', 'viewVolume', 'imagePyramid', 'point', 'shape']
+        self.__permittedAttributes = ['rotation', 'viewVolume', 'imagePyramid', 'point', 'shape']
         super().__init__(self.__permittedAttributes)
 
     def __str__(self):
-        tmp = self.indent + '<Template{}>\n'.format(self.getID)
+        tmp = self.indent + '<PhotoOverlay{}>\n'.format(self.getID)
         tmp += super().__str__()
-        tmp += self.indent + '</Template>\n'
+        tmp += self.indent + '</PhotoOverlay>\n'
+        return tmp
+
+class UpdateAttr(Container):
+    def __init__(self):
+        super().__init__([], [], False)
+    
+    def __str__(self):
+        tmp = ''
+        for i in range(len(self)):
+            tmp += str(self[i])
         return tmp
 
 class Update(KMLObject):
-    def __init__(self, attributes, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.__permittedAttributes = attributes + ['targetHref', 'change', 'create', 'delete']
+        self.__permittedAttributes = ['targetHref', 'change', 'create', 'delete']
         super().__init__(self.__permittedAttributes)
-        self.change = Container([], [], False)
-        self.create = Container([], [], False)
-        self.delete = Container([], [], False)
+        self.change = UpdateAttr()
+        self.create = UpdateAttr()
+        self.delete = UpdateAttr()
 
     def __str__(self):
-        tmp = self.indent + '<Update>\n'
+        tmp = self.indent + '<Update{}>\n'.format(self.getID)
         if len(self.change) > 0:
             tmp += self.indent + ' <Change>\n'
             tmp += str(self.change)
@@ -2187,6 +2194,18 @@ class GXTourPrimitive(KMLObject):
     def __init__(self, permittedAttributes, **kwargs):
         self.__permittedAttributes = permittedAttributes
         super().__init__(self.__permittedAttributes, **kwargs)
+
+class GXAnimatedUpdate(GXTourPrimitive):
+    def __init__(self, attributes, **kwargs):
+        
+        self.__permittedAttributes = attributes + ['gx_duration', 'gx_delayedStart', 'update']
+        super().__init__(self.__permittedAttributes)
+
+    def __str__(self):
+        tmp = self.indent + '<gx:AnimatedUpdate{}>\n'.format(self.getID)
+        tmp += super().__str__()
+        tmp += self.indent + '</gx:AnimatedUpdate>\n'
+        return tmp
 
 
 
@@ -2377,6 +2396,11 @@ attributeTypes = {
     'maxWidth'              : number,
     'maxHeight'             : number,
     'playList'              : GXPlayList,
-    
+    'change'                : UpdateAttr,
+    'create'                : UpdateAttr,
+    'delete'                : UpdateAttr,
+    'gx_duration'           : number,
+    'gx_delayedStart'       : number,
+    'update'                : Update,
     
 }
